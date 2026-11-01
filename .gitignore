@@ -1,0 +1,25 @@
+.DS_Store
+Thumbs.db
+
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.opencode/
+.claude/
+CLAUDE.md
+.agents/
+skills-lock.json
+.gradle
+graphify-out
+
+build/
+jars/
+# Loom's runClient game directory
+run/
+
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.log

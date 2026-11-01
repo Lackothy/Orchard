@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "orchard",
+  "version": "${version}",
+  "name": "Orchard",
+  "description": "The game side of Orchard, a Minecraft launcher for the Mac: its orchard behind Minecraft's menus, and Metal drawing on Apple Silicon from a modified copy of mcopt by Noah Dunnagan.",
+  "authors": ["Lackothy"],
+  "contributors": ["Noah Dunnagan (mcopt, Apache-2.0)", "Gael Quintanilla and contributors (Metal Shaders, Apache-2.0)"],
+  "contact": { "sources": "https://github.com/Lackothy/Orchard" },
+  "license": "Apache-2.0",
+  "environment": "client",
+  "entrypoints": {
+    "preLaunch": ["mcopt.metal.Preload"],
+    "client": ["com.lackothy.Orchard"]
+  },
+  "mixins": [
+    "orchard.mixins.json",
+    "mcopt-metal.mixins.json",
+    "mcopt-metal-lod.mixins.json",
+    "mcopt-metal-gen.mixins.json",
+    "mcopt-metal-own.mixins.json",
+    "mcopt-metal-ownmesh.mixins.json",
+    "mcopt-metal-startup.mixins.json",
+    "mcopt-metal-qos.mixins.json",
+    "mcopt-metal-cpu.mixins.json",
+    "mcopt-metal-chunk.mixins.json",
+    "mcopt-metal-alloc.mixins.json",
+    "mcopt-metal-chunkio.mixins.json",
+    "mcopt-metal-edge.mixins.json",
+    "mcopt-metal-compat.mixins.json",
+    "mcopt-metal-shade.mixins.json",
+    "mcopt-metal-shade-shadow.mixins.json",
+    "mcopt-metal-shade-vl.mixins.json",
+    "mcopt-metal-shade-light.mixins.json",
+    "mcopt-metal-shade-dims.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25"
+  }
+}

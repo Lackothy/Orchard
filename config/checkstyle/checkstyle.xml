@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  Minimal lint config: unused / redundant / duplicate imports only.
+  Severity is "warning" so violations are reported by ./gradlew build|check
+  and, with maxWarnings = 0 in build.gradle.kts, fail the check task.
+-->
+<module name="Checker">
+  <property name="severity" value="warning"/>
+  <module name="TreeWalker">
+    <module name="UnusedImports"/>
+    <!-- RedundantImport also covers duplicate imports. -->
+    <module name="RedundantImport"/>
+  </module>
+</module>
