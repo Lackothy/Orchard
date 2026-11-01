@@ -1,0 +1,24 @@
+{
+	"required": true,
+	"package": "mcopt.metal.mixin.shade",
+	"plugin": "mcopt.metal.mixin.shade.ShadeMixinPlugin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"ShadeFaceShadeMixin",
+		"ShadeFogMixin",
+		"ShadeGameRendererMixin",
+		"ShadeLevelRendererMixin",
+		"ShadePostMixin",
+		"ShadeTaaGameRendererMixin",
+		"ShadeTaaCameraMixin",
+		"ShadePauseScreenMixin",
+		"ShadeOitMixin",
+		"ShadeDebugMixin",
+		"ShadeWindowMixin",
+		"ShadeWindowAccessor",
+		"ShadePbrSpritesMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

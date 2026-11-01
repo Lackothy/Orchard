@@ -1,0 +1,14 @@
+{
+  "sources": [
+    {
+      "type": "minecraft:directory",
+      "source": "entity/chest",
+      "prefix": "entity/chest/"
+    },
+    {
+      "type": "minecraft:directory",
+      "source": "entity/shulker",
+      "prefix": "entity/shulker/"
+    }
+  ]
+}
