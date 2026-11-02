@@ -26,9 +26,13 @@ public struct Edition: Codable, Sendable, Equatable {
             edition.modJar = bundle.url(forResource: "orchard", withExtension: "jar")
             return edition
         }
+        #if DEBUG
         let repository = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
+        #else
+        let repository = URL(filePath: FileManager.default.currentDirectoryPath).deletingLastPathComponent()
+        #endif
         return try fromRepository(repository)
     }
 
