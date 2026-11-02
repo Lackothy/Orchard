@@ -35,10 +35,15 @@ public struct Edition: Codable, Sendable, Equatable {
             edition.modJar = bundle.url(forResource: "orchard", withExtension: "jar")
             return edition
         }
-        // launcher/Sources/OrchardKit/Edition.swift -> the repository root.
+        // launcher/Sources/OrchardKit/Edition.swift -> the repository root. A release build goes by the
+        // working directory (launcher/): #filePath would put the builder's path in the published binary.
+        #if DEBUG
         let repository = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
+        #else
+        let repository = URL(filePath: FileManager.default.currentDirectoryPath).deletingLastPathComponent()
+        #endif
         return try fromRepository(repository)
     }
 

@@ -28,6 +28,8 @@ bin=$(swift build -c $config --arch arm64 --show-bin-path)
 rm -rf $app
 mkdir -p $app/Contents/MacOS $app/Contents/Resources
 cp $bin/Orchard $app/Contents/MacOS/Orchard
+# The debug map names the folders it was built in, and a release goes to other people's Macs.
+if [[ $config == release ]]; then strip -x -S $app/Contents/MacOS/Orchard; fi
 cp $jar $app/Contents/Resources/orchard.jar
 swift $here/make-icon.swift $app/Contents/Resources/AppIcon.icns
 
