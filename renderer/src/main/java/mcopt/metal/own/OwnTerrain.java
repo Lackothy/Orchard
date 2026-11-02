@@ -1087,9 +1087,12 @@ public final class OwnTerrain {
 			}
 			long buffer = OwnNative.buffer(this.ctx, (long) this.arenaPhysicalUnits * ARENA_QUAD, true);
 			long old = this.arenaBuffer;
-			this.arenaAddress = OwnNative.contents(buffer);  // (a new address: exactPos's table is written again, posTableArena)
+			this.arenaAddress = OwnNative.contents(buffer);
 			this.arenaBuffer = buffer;
 			OwnNative.release(old);
+			// exactPos's table is written again next frame. Not left to the address differing: with no frame between renewals (a
+			// world change makes several) the system can hand back the address it was last written at, and the new buffer is empty.
+			this.posTableArena = 0;
 			return true;
 		} finally {
 			this.arenaLock.writeLock().unlock();
