@@ -70,8 +70,12 @@ launcher's tests.
 
 ## Licence
 
-Orchard is under the [Apache License 2.0](LICENSE). `renderer/` and the video settings are modified
-copies of other projects and keep their own licences: see [NOTICE](NOTICE).
+Orchard is under the [PolyForm Shield License 1.0.0](LICENSE), so it's source-available rather than
+open source. You can use it, change it and share your changes, but you can't provide anything that
+competes with Orchard, even for free, and selling Orchard or a copy of it counts as competing.
+
+`renderer/` and the video settings are modified copies of other projects, whose code keeps its own
+licences: see [NOTICE](NOTICE).
 
 ## Credits
 

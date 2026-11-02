@@ -1,15 +1,16 @@
 Orchard
 Copyright 2026 Lackothy
 
-Orchard is licensed under the Apache License, Version 2.0 (LICENSE), apart from the parts below,
+Orchard is licensed under the PolyForm Shield License 1.0.0 (LICENSE), apart from the parts below,
 which keep their own licences.
 
 renderer/ is a modified copy of mcopt by Noah Dunnagan, merged with Metal Shaders by Gael Quintanilla
-and contributors. Both are Apache-2.0, with MIT-licensed portions. See renderer/NOTICE,
-renderer/LICENSE and renderer/LICENSES.
+and contributors. Both are Apache-2.0, with MIT-licensed portions, and their code stays under those
+licences. See renderer/NOTICE, renderer/LICENSE and renderer/LICENSES. Orchard's own files there, and
+Orchard's changes to the others, are under the PolyForm Shield License.
 
-src/main/java/com/lackothy/orchard/menu is a modified copy of Reese's Sodium Options by FlashyReese
-(MIT). See src/main/resources/licenses/reeses-sodium-options.txt.
+src/main/java/com/lackothy/orchard/menu is a modified copy of Reese's Sodium Options by FlashyReese,
+and stays under its MIT licence. See src/main/resources/licenses/reeses-sodium-options.txt.
 
 Minecraft is a trademark of Mojang AB. Orchard is not an official Minecraft product, and is not
 approved by or associated with Mojang or Microsoft.
