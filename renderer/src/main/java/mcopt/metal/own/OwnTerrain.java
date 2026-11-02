@@ -855,6 +855,7 @@ public final class OwnTerrain {
 			this.arenaAddress = OwnNative.contents(buffer);
 			this.arenaBuffer = buffer;
 			OwnNative.release(old);
+			this.posTableArena = 0;
 			return true;
 		} finally {
 			this.arenaLock.writeLock().unlock();
