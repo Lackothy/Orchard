@@ -11,6 +11,7 @@ https://github.com/noahdunnagan/mcopt, built into Orchard's own jar. Orchard's o
 src/main/java/mcopt/metal/Switch.java, src/main/java/mcopt/metal/ScreenTimes.java,
 src/main/java/mcopt/metal/Upscaler.java, src/main/native/upscale.m and
 src/main/java/mcopt/metal/mixin/MetalMixinPlugin.java, and mcopt-metal.mixins.json names that plugin. Any other file changed for Orchard says so at the top.
+Orchard's own files here, and Orchard's changes to the others, are under the PolyForm Shield License 1.0.0 (../LICENSE).
 
 
 Orchard also carries Metal Shaders 1.2.6-alpha (mcopt-shade, https://github.com/GaelQuinta/minecraft-metal-shaders,
