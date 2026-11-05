@@ -1,4 +1,4 @@
-// Modified for Orchard: vsync is always on (FIFO is the only present mode offered), the pacer is off unless asked for, and
+// Modified for Russet: vsync is always on (FIFO is the only present mode offered), the pacer is off unless asked for, and
 // FrameWait is told when the display holds frames to its refreshes.
 package mcopt.metal;
 
@@ -17,7 +17,7 @@ import org.lwjgl.sdl.SDLMetal;
 final class MetalSurface implements GpuSurfaceBackend {
 	/**
 	 * -Dmcopt.metal.pace=true: with vsync off, present only the last frame that makes each refresh (see mc_pace). Off by
-	 * default in Orchard: on the Air (macOS 27, 60 Hz), a window's presents without display sync still wait for a drawable
+	 * default in Russet: on the Air (macOS 27, 60 Hz), a window's presents without display sync still wait for a drawable
 	 * the display has let go of, so the game draws no faster than the refreshes and every frame is shown, one per refresh.
 	 * Paced, it drew thousands, presented about 49 a second and repeated the frame before on about one refresh in five,
 	 * by the drawables' presentedTime (the tour's -Pframes): a frame that ran long missed the one moment the pacer allowed.
@@ -123,9 +123,9 @@ final class MetalSurface implements GpuSurfaceBackend {
 
 	@Override
 	public Collection<GpuSurface.PresentMode> supportedPresentModes() {
-		// Orchard: vsync is always on with Metal, whatever the option says (Minecraft falls back to FIFO when IMMEDIATE and
+		// Russet: vsync is always on with Metal, whatever the option says (Minecraft falls back to FIFO when IMMEDIATE and
 		// MAILBOX aren't offered). Vsync off stuttered at a steady frame rate on the Air, in a window and fullscreen, through
-		// mcopt's pacer and three tries of Orchard's (see CLAUDE.md), and a 60 Hz screen shows 60 frames either way.
+		// mcopt's pacer and three tries of Russet's (see CLAUDE.md), and a 60 Hz screen shows 60 frames either way.
 		return List.of(GpuSurface.PresentMode.FIFO);
 	}
 

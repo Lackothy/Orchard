@@ -1,4 +1,4 @@
-// Modified for Orchard: the unit test's encoder also tests see-through sections (OwnTerrain.tOccBind).
+// Modified for Russet: the unit test's encoder also tests see-through sections (OwnTerrain.tOccBind).
 package mcopt.metal.own;
 
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;

@@ -1,4 +1,4 @@
-// Modified for Orchard: fragTOcc and fragTReady, for see-through sections tested against the depth pyramid.
+// Modified for Russet: fragTOcc and fragTReady, for see-through sections tested against the depth pyramid.
 package mcopt.metal.own;
 
 import java.lang.foreign.FunctionDescriptor;

@@ -1,4 +1,4 @@
-// Modified for Orchard: ScreenTimes' record of when each present reached the screen (mc_shown_*, shownWatch).
+// Modified for Russet: ScreenTimes' record of when each present reached the screen (mc_shown_*, shownWatch).
 // Thin C surface over Metal for the Java backend (called through java.lang.foreign).
 // Objects cross the boundary as retained pointers; Java owns them and hands them back to mc_release.
 // Built without ARC so ownership is explicit. Hot encoder calls allocate nothing, so they need no autorelease pool.
@@ -1842,7 +1842,7 @@ static void paceWatch(id<CAMetalDrawable> drawable) {
 	}];
 }
 
-// ---- what reached the screen (Orchard: measuring, ScreenTimes) ----
+// ---- what reached the screen (Russet: measuring, ScreenTimes) ----
 // While on, every present gets a presented handler that keeps when the drawable reached the screen (0: it never did, as a
 // later one replaced it), when it was sent, the frame's clock (mc_shown_tag: the time it was drawn for) and when it was
 // tagged. A ring: presents are numbered from 0 for the life of the process and kept at their number modulo SHOWN_MAX.

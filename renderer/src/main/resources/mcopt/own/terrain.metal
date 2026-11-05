@@ -1,4 +1,4 @@
-// Modified for Orchard: see-through sections tested against the depth pyramid (frag_t_test, frag_t_sum, frag_t_copy).
+// Modified for Russet: see-through sections tested against the depth pyramid (frag_t_test, frag_t_sum, frag_t_copy).
 // Our own near terrain (mcopt.metal.own, -Dmcopt.own=true): GPU cull of every compiled section, then one instanced indirect
 // draw per layer that pulls its vertices from the arena. The shading is vanilla's core/terrain (terrain.vsh / terrain.fsh and
 // their includes fog, globals, sample_lightmap, texture_sampling), restated for vertex pulling.
@@ -1415,7 +1415,7 @@ kernel void frag_uocc_finish_g(constant CullFrame &f [[buffer(0)]], constant Fra
 	}
 }
 
-// -Dmcopt.own.mesh.tocc (Orchard's, OwnTerrain.TOCC): see-through terrain against the same pyramid, after the unit test. Later depth only
+// -Dmcopt.own.mesh.tocc (Russet's, OwnTerrain.TOCC): see-through terrain against the same pyramid, after the unit test. Later depth only
 // comes nearer, so a section's see-through box wholly behind the pyramid could only fail its depth tests: leaving it out changes no pixel.
 // OwnTerrain writes the list, its runs and the head while encoding the translucent draw, after these are encoded and before the commit.
 struct TOccHead {

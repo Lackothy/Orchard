@@ -1,4 +1,4 @@
-// Modified for Orchard: far terrain takes its small-GPU mode by itself under 10 GPU cores; nothing is applied or written when Switch has the renderer off, and beside Sodium only mcopt.metal is read. Metal Shaders stay off until asked for.
+// Modified for Russet: far terrain takes its small-GPU mode by itself under 10 GPU cores; nothing is applied or written when Switch has the renderer off, and beside Sodium only mcopt.metal is read. Metal Shaders stay off until asked for.
 package mcopt.metal;
 
 import java.io.IOException;
@@ -312,7 +312,7 @@ public final class Profile {
 			# Single switches win over the profile, e.g. our renderer off but the rest on:
 			#mcopt.own=false
 			#
-			# Metal Shaders (mcopt-shade): lighting, shadows, sky, clouds, water, god rays. Off unless asked for (Orchard's Metal page).
+			# Metal Shaders (mcopt-shade): lighting, shadows, sky, clouds, water, god rays. Off unless asked for (Russet's Metal page).
 			#mcopt.shade=true
 			# Quality preset: performance, balanced, quality or ultra.
 			#mcopt.shade.preset=balanced

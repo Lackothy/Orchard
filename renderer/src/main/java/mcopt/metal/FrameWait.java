@@ -1,4 +1,4 @@
-// Modified for Orchard: a cap at or above the refresh rate doesn't fight a display that holds frames to its refreshes (interval).
+// Modified for Russet: a cap at or above the refresh rate doesn't fight a display that holds frames to its refreshes (interval).
 package mcopt.metal;
 
 import com.mojang.blaze3d.platform.Monitor;

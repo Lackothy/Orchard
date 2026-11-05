@@ -1,4 +1,4 @@
-// Orchard's own file (see NOTICE): not part of mcopt.
+// Russet's own file (see NOTICE): not part of mcopt.
 package mcopt.metal;
 
 /**

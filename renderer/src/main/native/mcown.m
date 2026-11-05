@@ -1,4 +1,4 @@
-// Modified for Orchard: see-through sections tested against the depth pyramid, in the unit test's encoder (mco_frag_t_occ).
+// Modified for Russet: see-through sections tested against the depth pyramid, in the unit test's encoder (mco_frag_t_occ).
 // Our own near terrain (mcopt.metal.own, -Dmcopt.own=true): its library, the per-frame cull (a compute pass in the pre command
 // buffer, as the far terrain's) and the two instanced indirect draws (solid, cutout) into the level's open render encoder.
 // Only called with -Dmcopt.own; the backend's own paths never reach it.

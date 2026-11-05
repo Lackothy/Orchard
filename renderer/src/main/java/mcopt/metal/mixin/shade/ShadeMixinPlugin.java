@@ -1,4 +1,4 @@
-// Modified for Orchard: applies nothing when Switch has the renderer off. With the shaders off the pause menu keeps nothing: their switch is on Orchard's Metal page.
+// Modified for Russet: applies nothing when Switch has the renderer off. With the shaders off the pause menu keeps nothing: their switch is on Russet's Metal page.
 /*
  * Copyright 2026 mcopt-shade contributors
  *

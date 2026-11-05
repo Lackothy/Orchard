@@ -1,4 +1,4 @@
-// Modified for Orchard: the dynamic resolution aims no higher than the screen's refresh rate.
+// Modified for Russet: the dynamic resolution aims no higher than the screen's refresh rate.
 /*
  * Copyright 2026 mcopt-shade contributors
  *
@@ -201,7 +201,7 @@ public final class ShadeTaa {
 		boolean drs = TaaConfig.drs();
 		if (drs && !drsLast) DRS.restart(TaaConfig.SCALE);
 		drsLast = drs;
-		// (Orchard: Metal always waits for the screen here, so frames past its refresh rate are never drawn, and aiming at them only costs resolution)
+		// (Russet: Metal always waits for the screen here, so frames past its refresh rate are never drawn, and aiming at them only costs resolution)
 		if (this.refreshFrames++ % 240 == 0) {
 			com.mojang.blaze3d.platform.Monitor monitor = Minecraft.getInstance().getWindow().findBestMonitor();
 			this.refresh = monitor != null ? Math.round(monitor.currentMode().getRefreshRate()) : 0;

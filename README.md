@@ -1,4 +1,4 @@
-# Orchard Metal
+# Russet
 
 A Fabric mod for Minecraft: Java Edition 26.3 that draws the game through Apple's Metal instead of
 OpenGL. It works in any Fabric launcher, Lunar Client's Fabric add-on included.
@@ -14,7 +14,7 @@ On an Apple silicon Mac:
 - Optional far terrain past your render distance
 - Render scale through MetalFX, with the HUD left sharp
 - See-through blocks skipped when they're hidden behind solid ones
-- The Orchard Pack: seven resource packs (Low Shield, Low Fire, Icons, Fancy Crops, Even Better Enchants, Fancy Beds and Fast Better Grass), which the game downloads from Modrinth on its first start
+- The Russet Pack: seven resource packs (Low Shield, Low Fire, Icons, Fancy Crops, Even Better Enchants, Fancy Beds and Fast Better Grass), which the game downloads from Modrinth on its first start
 - Video settings based on [Reese's Sodium Options](https://github.com/FlashyReese/reeses-sodium-options), and a custom loading screen
 
 ## Requirements
@@ -26,7 +26,7 @@ Off a Mac, or on an older macOS, the renderer switches itself off and the game d
 
 ## Install
 
-Put `OrchardMetal-<version>.jar` in your instance's `mods` folder, next to Fabric API. In Lunar
+Put `Russet-<version>.jar` in your instance's `mods` folder, next to Fabric API. In Lunar
 Client, add it in the Fabric add-on's Mods tab.
 
 ## With Sodium and Iris
@@ -52,7 +52,7 @@ You need Xcode's command line tools (for the native library) and Java 25.
 ```sh
 ./gradlew build              # the mod, into jars/
 ./gradlew runClient          # the game from source (game dir run/)
-./gradlew runClientGameTest  # a real client that screenshots the menus into build/orchard-screenshots
+./gradlew runClientGameTest  # a real client that screenshots the menus into build/russet-screenshots
 ```
 
 `runClient` takes `-PextraMods=a.jar:b.jar` to add other mods beside it, and `-Pjvm="-Da=b"` to add
@@ -60,12 +60,12 @@ properties. `runClientGameTest` runs on Mojang's renderer unless given `-Pmetal`
 
 ## Licence
 
-Orchard Metal is under the [PolyForm Shield License 1.0.0](LICENSE), so it's source-available rather
+Russet is under the [PolyForm Shield License 1.0.0](LICENSE), so it's source-available rather
 than open source. You can use it, change it and share your changes, but you can't provide anything
 that competes with it, even for free, and selling it or a copy of it counts as competing.
 
 `renderer/` and the video settings are modified copies of other projects, whose code keeps its own
-licences: see [NOTICE](NOTICE). The Orchard Pack's packs are their authors' and are never carried in
+licences: see [NOTICE](NOTICE). The Russet Pack's packs are their authors' and are never carried in
 the jar.
 
 ## Credits

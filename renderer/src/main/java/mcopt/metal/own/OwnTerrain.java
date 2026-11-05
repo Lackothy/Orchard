@@ -1,7 +1,7 @@
-// Modified for Orchard: see-through sections tested against the depth pyramid (TOCC), behind VideoOptions.HIDDEN_SEE_THROUGH.
+// Modified for Russet: see-through sections tested against the depth pyramid (TOCC), behind VideoOptions.HIDDEN_SEE_THROUGH.
 package mcopt.metal.own;
 
-import com.lackothy.orchard.video.VideoOptions;
+import com.lackothy.russet.video.VideoOptions;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
@@ -2664,7 +2664,7 @@ public final class OwnTerrain {
 	private long tArgs, tArgsAddress;
 
 	/**
-	 * -Dmcopt.own.mesh.tocc=true (Orchard's; with tfrustum, whose boxes it uses, and only while VideoOptions.HIDDEN_SEE_THROUGH is on): a
+	 * -Dmcopt.own.mesh.tocc=true (Russet's; with tfrustum, whose boxes it uses, and only while VideoOptions.HIDDEN_SEE_THROUGH is on): a
 	 * see-through section whose box lies wholly behind this frame's depth pyramid is left out of the translucent draw. Depth only comes
 	 * nearer after the pyramid, so its faces could only fail their depth tests: no pixel changes, and the rest keep their order.
 	 * The test runs in the unit test's encoder (no split of its own), encoded before this frame's list exists, so tOccBind gives it

@@ -1,0 +1,21 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.lackothy.russet.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "GuiGraphicsAccess",
+    "GuiMixin",
+    "LevelRendererAccess",
+    "LoadingOverlayMixin",
+    "OptionInstanceAccess",
+    "OptionsSubScreenAccess",
+    "PackRepositoryMixin",
+    "RenderScaleMixin",
+    "TitleScreenAccess",
+    "TooltipAccess"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

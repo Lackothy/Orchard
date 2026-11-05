@@ -1,4 +1,4 @@
-// Orchard's own file (see NOTICE): not part of mcopt.
+// Russet's own file (see NOTICE): not part of mcopt.
 package mcopt.metal;
 
 import java.io.IOException;
@@ -10,7 +10,7 @@ import java.util.function.Predicate;
 import net.fabricmc.loader.api.FabricLoader;
 
 /**
- * How much of the renderer runs, now that it is part of Orchard Metal's jar rather than a mod of its own.
+ * How much of the renderer runs, now that it is part of Russet's jar rather than a mod of its own.
  * <ul>
  * <li>All of it ({@link #ON}) by itself.</li>
  * <li>Only the Metal backend ({@link #BACKEND} without ON) beside Sodium, which then draws the terrain through the
@@ -18,16 +18,16 @@ import net.fabricmc.loader.api.FabricLoader;
  * out only the terrain renderer, far terrain and shaders. Iris needs Sodium, and stays asleep when options.txt prefers
  * Vulkan (it then applies only its key for the shader pack screen), so it is let through only then.</li>
  * <li>None of it, with every mixin config plugin applying nothing and Profile writing no config, so the game is exactly
- * Mojang's: when the game is started with {@code -Dorchard.renderer=mojang} (the game tests do, for Mojang's), when
+ * Mojang's: when the game is started with {@code -Drusset.renderer=mojang} (the game tests do, for Mojang's), when
  * Iris is awake, or on a computer the native library can't run on (PlatformCheck), where mcopt stopped the game
  * instead.</li>
  * </ul>
  */
 public final class Switch {
-	/** mcopt's own version at the commit Orchard took. */
+	/** mcopt's own version at the commit Russet took. */
 	public static final String VERSION = "0.3.0-alpha.2";
 	/** Why the renderer is off, as a sentence, or null when it is on. */
-	public static final String WHY_OFF = whyOff(System.getProperty("orchard.renderer"), loaded(), vulkanPreferred(options()), PlatformCheck.problem());
+	public static final String WHY_OFF = whyOff(System.getProperty("russet.renderer"), loaded(), vulkanPreferred(options()), PlatformCheck.problem());
 	/** Why only the backend runs, as a sentence, or null when all of the renderer runs or none of it. */
 	public static final String WHY_BACKEND_ONLY = WHY_OFF == null ? backendOnly(loaded()) : null;
 	/** The Metal backend runs. */
@@ -39,7 +39,7 @@ public final class Switch {
 	}
 
 	static String whyOff(String renderer, Predicate<String> loaded, boolean vulkanPreferred, String platformProblem) {
-		if ("mojang".equals(renderer)) return "The game was started with -Dorchard.renderer=mojang, which asks for Minecraft's own renderer.";
+		if ("mojang".equals(renderer)) return "The game was started with -Drusset.renderer=mojang, which asks for Minecraft's own renderer.";
 		if (loaded.test("iris") && !vulkanPreferred) return "Iris is on, and Metal can't run beside it. Set Graphics API to Vulkan and restart: Iris then steps aside, and Metal draws with Sodium.";
 		return platformProblem;
 	}
@@ -57,7 +57,7 @@ public final class Switch {
 				if (line.startsWith("preferredGraphicsBackend:")) return line.toLowerCase(Locale.ROOT).contains("vulkan");
 			}
 		} catch (IOException | RuntimeException e) {
-			System.out.println("[Orchard] Can't read " + options + ": " + e);
+			System.out.println("[Russet] Can't read " + options + ": " + e);
 		}
 		return false;
 	}

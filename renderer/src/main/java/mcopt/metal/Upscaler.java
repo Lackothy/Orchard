@@ -1,4 +1,4 @@
-// Orchard's own file (see NOTICE): not part of mcopt.
+// Russet's own file (see NOTICE): not part of mcopt.
 package mcopt.metal;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -6,7 +6,7 @@ import com.mojang.renderpearl.api.textures.GpuTexture;
 import com.mojang.renderpearl.frontend.FrontendCommandEncoder;
 
 /**
- * MetalFX's spatial scaler for Orchard's render scale (com.lackothy.orchard.video.RenderScale, upscale.m): one at a time,
+ * MetalFX's spatial scaler for Russet's render scale (com.lackothy.russet.video.RenderScale, upscale.m): one at a time,
  * made again when the sizes change, the old one freed once the GPU is done with it.
  */
 public final class Upscaler {

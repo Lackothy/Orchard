@@ -1,4 +1,4 @@
-// Modified for Orchard: does nothing, and says why in the log, when Switch has the renderer off or only its backend on.
+// Modified for Russet: does nothing, and says why in the log, when Switch has the renderer off or only its backend on.
 package mcopt.metal;
 
 import java.io.BufferedReader;
@@ -30,9 +30,9 @@ public final class Preload implements PreLaunchEntrypoint {
 
 	@Override
 	public void onPreLaunch() {
-		// Its list comes from Orchard's own mod set, so beside Sodium it doesn't run either.
+		// Its list comes from Russet's own mod set, so beside Sodium it doesn't run either.
 		if (!Switch.ON) {
-			System.out.println("[Orchard] " + (Switch.BACKEND ? Switch.WHY_BACKEND_ONLY : "Metal is off. " + Switch.WHY_OFF));
+			System.out.println("[Russet] " + (Switch.BACKEND ? Switch.WHY_BACKEND_ONLY : "Metal is off. " + Switch.WHY_OFF));
 			return;
 		}
 		if (!ENABLED) return;

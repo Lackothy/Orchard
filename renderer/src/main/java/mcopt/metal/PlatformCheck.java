@@ -1,4 +1,4 @@
-// Modified for Orchard: says what is wrong (Switch then leaves the renderer off) rather than stopping the game, as Orchard's jar has more in it than the renderer.
+// Modified for Russet: says what is wrong (Switch then leaves the renderer off) rather than stopping the game, as Russet's jar has more in it than the renderer.
 package mcopt.metal;
 
 /**

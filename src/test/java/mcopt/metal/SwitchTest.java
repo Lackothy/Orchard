@@ -28,9 +28,9 @@ class SwitchTest {
     @Test
     @DisplayName("off when asked for Mojang's renderer")
     void askedForMojang() {
-        assertEquals("The game was started with -Dorchard.renderer=mojang, which asks for Minecraft's own renderer.",
+        assertEquals("The game was started with -Drusset.renderer=mojang, which asks for Minecraft's own renderer.",
             Switch.whyOff("mojang", mod -> false, false, null));
-        assertEquals("The game was started with -Dorchard.renderer=mojang, which asks for Minecraft's own renderer.",
+        assertEquals("The game was started with -Drusset.renderer=mojang, which asks for Minecraft's own renderer.",
             Switch.whyOff("mojang", Set.of("sodium")::contains, false, null));
     }
 
