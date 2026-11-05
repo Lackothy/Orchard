@@ -14,7 +14,7 @@ On an Apple silicon Mac:
 - Optional far terrain past your render distance
 - Render scale through MetalFX, with the HUD left sharp
 - See-through blocks skipped when they're hidden behind solid ones
-- The Russet Pack: seven resource packs (Low Shield, Low Fire, Icons, Fancy Crops, Even Better Enchants, Fancy Beds and Fast Better Grass), which the game downloads from Modrinth on its first start
+- The Russet Pack: seven resource packs by other creators, which the game downloads from Modrinth on its first start (see below)
 - Video settings based on [Reese's Sodium Options](https://github.com/FlashyReese/reeses-sodium-options), and a custom loading screen
 
 ## Requirements
@@ -37,6 +37,28 @@ own terrain, far terrain and shaders stay off.
 Iris needs Minecraft's Graphics API set to Vulkan (`preferredGraphicsBackend:"vulkan"` in
 `options.txt`) and a restart. It then steps aside, and Metal goes first anyway. Left on Default,
 Iris keeps OpenGL and Metal switches itself off, saying so in the log.
+
+## The Russet Pack
+
+These resource packs show in your pack list as one pack named Russet, which stays switched on:
+
+- [Low Shield](https://modrinth.com/resourcepack/low-shield-pack) and [Low Fire](https://modrinth.com/resourcepack/low-fire-pack) by Oculie
+- [Icons](https://modrinth.com/resourcepack/icons) by Zartrix
+- [(Bee's) Fancy Crops](https://modrinth.com/resourcepack/fancy-crops) by bebebea_loste
+- [Even Better Enchants](https://modrinth.com/resourcepack/even-better-enchants) by mythitorium
+- [Fancy Beds](https://modrinth.com/resourcepack/fancy-beds) by Agente_511
+- [Fast Better Grass](https://modrinth.com/resourcepack/fast-better-grass) by robotkoer
+
+They're their authors' work, under their own licences. Russet doesn't carry or change their files: it downloads
+each one from its Modrinth page, as a launcher would.
+
+## Network use
+
+Russet goes online only to fetch the Russet Pack. On a start where any of the seven packs is missing from the game
+folder's `russet-pack` folder, it asks Modrinth's API (api.modrinth.com) for each missing pack's newest version for
+your Minecraft, downloads the files from Modrinth (cdn.modrinth.com) and checks each file's SHA-1. Those requests
+carry your IP address, as any download does, and a User-Agent naming Russet and its version. Nothing else is sent,
+and Russet collects no data. Once all seven packs are there, it doesn't go online again.
 
 ## Turning on shaders
 
@@ -74,4 +96,5 @@ the jar.
 - [Metal Shaders](https://github.com/GaelQuinta/minecraft-metal-shaders) by Gael Quintanilla and contributors, the shaders
 - [Reese's Sodium Options](https://github.com/FlashyReese/reeses-sodium-options) by FlashyReese, the video settings
 
-Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.
+NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT. Russet is also not made
+by, affiliated with or endorsed by Lunar Client or by the authors of the projects credited above.
