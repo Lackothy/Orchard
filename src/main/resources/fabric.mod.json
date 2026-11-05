@@ -1,20 +1,21 @@
 {
   "schemaVersion": 1,
-  "id": "orchard",
+  "id": "orchard_metal",
   "version": "${version}",
-  "name": "Orchard",
-  "description": "The game side of Orchard, a Minecraft launcher for the Mac: its orchard behind Minecraft's menus, and Metal drawing on Apple Silicon from a modified copy of mcopt by Noah Dunnagan.",
+  "name": "Orchard Metal",
+  "description": "Metal drawing on Apple Silicon from a modified copy of mcopt by Noah Dunnagan, the Orchard Pack of resource packs (fetched from Modrinth), and Orchard's video settings and loading screen.",
   "authors": ["Lackothy"],
-  "contributors": ["Noah Dunnagan (mcopt, Apache-2.0)", "Gael Quintanilla and contributors (Metal Shaders, Apache-2.0)"],
+  "contributors": ["Noah Dunnagan (mcopt, Apache-2.0)", "Gael Quintanilla and contributors (Metal Shaders, Apache-2.0)", "FlashyReese (Reese's Sodium Options, MIT)"],
   "contact": { "sources": "https://github.com/Lackothy/Orchard" },
   "license": "PolyForm-Shield-1.0.0",
+  "icon": "assets/orchard/pack.png",
   "environment": "client",
   "entrypoints": {
     "preLaunch": ["mcopt.metal.Preload"],
-    "client": ["com.lackothy.Orchard"]
+    "client": ["com.lackothy.OrchardMetal"]
   },
   "mixins": [
-    "orchard.mixins.json",
+    "orchard-metal.mixins.json",
     "mcopt-metal.mixins.json",
     "mcopt-metal-lod.mixins.json",
     "mcopt-metal-gen.mixins.json",
@@ -37,6 +38,10 @@
   "depends": {
     "fabricloader": ">=${loader_version}",
     "minecraft": "~${minecraft_version}",
-    "java": ">=25"
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "breaks": {
+    "orchard": "*"
   }
 }

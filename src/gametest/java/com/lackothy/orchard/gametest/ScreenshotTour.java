@@ -1,45 +1,42 @@
 package com.lackothy.orchard.gametest;
 
-import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import com.lackothy.orchard.loading.Ending;
 import com.lackothy.orchard.loading.Loader;
 import com.lackothy.orchard.loading.Rehearsal;
-import com.lackothy.orchard.mac.MacPower;
-import com.lackothy.orchard.mac.PowerLimit;
-import com.lackothy.orchard.video.Pages;
-import com.lackothy.orchard.video.RendererSettings.Api;
-import com.lackothy.orchard.video.Row;
-import com.lackothy.orchard.video.VideoOptions;
 import com.lackothy.orchard.menu.VideoOptionsScreen;
 import com.lackothy.orchard.menu.frame.option.OptionRow;
 import com.lackothy.orchard.menu.layout.LayoutBounds;
 import com.lackothy.orchard.menu.option.MenuChanges;
 import com.lackothy.orchard.menu.option.MenuSetting;
+import com.lackothy.orchard.video.Pages;
+import com.lackothy.orchard.video.RendererSettings.Api;
+import com.lackothy.orchard.video.Row;
+import com.lackothy.orchard.video.VideoOptions;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import mcopt.metal.Switch;
 import mcopt.metal.shade.Shade;
 import mcopt.metal.shade.ShadeSettingsScreen;
+import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.KeyEvent;
-import org.lwjgl.sdl.SDLKeycode;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
-import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
+import net.minecraft.client.input.KeyEvent;
+import org.lwjgl.sdl.SDLKeycode;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Starts a real client with Orchard's jar and screenshots Minecraft's menus on the orchard into
- * {@code build/orchard-screenshots}: each Background choice, the hours Auto passes through, the
- * blurred scene behind another menu, the loading screen (each bar part way, each ending half way),
- * the pause menu over a world, Orchard's video settings over it, and the narrow sizes.
+ * Starts a real client with Orchard Metal and screenshots into {@code build/orchard-screenshots}:
+ * the loading screen (each bar part way, each ending half way), Minecraft's Options menu leading to
+ * Orchard's video settings, the pause menu over a world, every page of the video settings over it,
+ * a search, a change waiting for Apply, a tooltip, and the narrow sizes.
  */
 public final class ScreenshotTour implements FabricClientGameTest {
 
@@ -60,27 +57,11 @@ public final class ScreenshotTour implements FabricClientGameTest {
             return;
         }
 
-        for (String scene : new String[] {"day", "sunset", "night"}) {
-            System.setProperty("orchard.scene", scene);
-            title(context, "title-" + scene);
-        }
-        System.clearProperty("orchard.scene");
-        for (String[] hour : new String[][] {{"sunrise", "6.4"}, {"midnight", "0"}}) {
-            System.setProperty("orchard.sceneHour", hour[1]);
-            title(context, "title-auto-" + hour[0]);
-        }
-
         System.setProperty("orchard.sceneHour", "15");
         loadingScreens(context);
-        context.setScreen(() -> new SelectWorldScreen(new TitleScreen()));
-        context.waitTicks(SETTLE);
-        shot(context, "worlds-on-scene");
-
-        // Outside a world first: no item can be made there, and the menu must still open.
         openVideo(context, "Video");
         shot(context, "video-from-title");
         menus(context);
-        mac(context);
 
         try (TestSingleplayerContext world = context.worldBuilder().create()) {
             world.getServer().runCommand("time set noon");
@@ -149,7 +130,7 @@ public final class ScreenshotTour implements FabricClientGameTest {
 
     /**
      * Orchard's video settings over the world, every page at the usual size and two at full screen
-     * on a MacBook, then a search, then the frame rate overlay in play.
+     * on a MacBook, then a search.
      */
     private static void videoSettings(ClientGameTestContext context) {
         List<String> pages = context.computeOnClient(mc -> Pages.all().stream().map(Pages.Page::name).toList());
@@ -170,9 +151,9 @@ public final class ScreenshotTour implements FabricClientGameTest {
         shot(context, "video-menu");
         shaderSettings(context);
         // As a player searches: Ctrl+F, the words, then Enter for the first match. Esc clears it.
-        openVideo(context, "Particles");
+        openVideo(context, "Loading");
         key(context, InputConstants.KEY_F, InputConstants.KEYCODE_F, CONTROL);
-        context.getInput().typeChars("fog");
+        context.getInput().typeChars("clouds");
         context.waitTicks(SETTLE);
         shot(context, "video-search");
         key(context, InputConstants.KEY_RETURN, InputConstants.KEYCODE_RETURN, 0);
@@ -215,18 +196,6 @@ public final class ScreenshotTour implements FabricClientGameTest {
         openVideo(context, "Quality");
         shot(context, "video-quality-320x240");
         size(context, 854, 480, Integer.getInteger("orchard.guiScale", 0));
-
-        context.setScreen(() -> null);
-        context.runOnClient(mc -> {
-            VideoOptions.FRAME_RATE.set(VideoOptions.FrameRate.DETAILED);
-            VideoOptions.COORDINATES.set(true);
-        });
-        context.waitTicks(SETTLE * 4);
-        shot(context, "overlay-in-world");
-        context.runOnClient(mc -> {
-            VideoOptions.FRAME_RATE.set(VideoOptions.FrameRate.OFF);
-            VideoOptions.COORDINATES.set(false);
-        });
     }
 
     /**
@@ -234,13 +203,15 @@ public final class ScreenshotTour implements FabricClientGameTest {
      * what was turned off grey out at once, and nothing is set until Apply. Undo lets go of it.
      */
     private static void pending(ClientGameTestContext context) {
-        openVideo(context, "Animations");
-        context.runOnClient(mc -> setting(mc.gui.screen(), "All animations").modifyValue(false));
+        openVideo(context, "Loading");
+        Loader before = context.computeOnClient(mc -> VideoOptions.LOADER.get());
+        Loader other = before == Loader.RAYS ? Loader.COMET : Loader.RAYS;
+        context.runOnClient(mc -> setting(mc.gui.screen(), "Loading bar").modifyValue(other));
         context.waitTicks(SETTLE);
         shot(context, "video-pending");
         context.runOnClient(mc -> {
             MenuChanges changes = ((VideoOptionsScreen) mc.gui.screen()).changes();
-            if (!VideoOptions.ANIMATIONS.on() || !changes.anyOptionChanged()) {
+            if (VideoOptions.LOADER.get() != before || !changes.anyOptionChanged()) {
                 throw new AssertionError("A change in the menu was set before Apply, or not held");
             }
             changes.resetAllOptionsFromBindings();
@@ -362,31 +333,6 @@ public final class ScreenshotTour implements FabricClientGameTest {
         });
         context.waitTicks(SETTLE);
         shot(context, "vanilla-video");
-    }
-
-    /** The Mac's key names, the Battery page, and its limit reaching the frame rate Minecraft paces to. */
-    private static void mac(ClientGameTestContext context) {
-        context.runOnClient(mc -> {
-            String command = InputConstants.getKey("key.keyboard.left.win").getDisplayName().getString();
-            String option = InputConstants.getKey("key.keyboard.right.alt").getDisplayName().getString();
-            if (MacPower.MAC && (!command.equals("Left Command") || !option.equals("Right Option"))) {
-                throw new AssertionError("Mac keys are named " + command + " and " + option);
-            }
-            List<VideoOptions.Choice<VideoOptions.Limit>> limits =
-                List.of(VideoOptions.BATTERY_LIMIT, VideoOptions.LOW_POWER_LIMIT, VideoOptions.HOT_LIMIT);
-            List<VideoOptions.Limit> before = limits.stream().map(VideoOptions.Choice::get).toList();
-            limits.forEach(limit -> limit.set(VideoOptions.Limit.FPS_30));
-            int paced = mc.getFramerateLimitTracker().getFramerateLimit();
-            System.out.println("[Orchard tour] " + MacPower.describe(MacPower.state()) + ", cap " + PowerLimit.now() + ", paced to " + paced);
-            if (PowerLimit.now() > 0 && paced > 30) {
-                throw new AssertionError("Paced to " + paced + " with a cap of 30");
-            }
-            for (int i = 0; i < limits.size(); i++) {
-                limits.get(i).set(before.get(i));
-            }
-        });
-        openVideo(context, "Battery");
-        shot(context, "video-battery");
     }
 
     private static void size(ClientGameTestContext context, int width, int height, int guiScale) {

@@ -11,9 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OrchardSceneTest {
 
     @Test
-    @DisplayName("the random numbers are the launcher's, so both draw the same orchard")
-    void sameSeedsAsTheLauncher() {
-        // From SeededRandom in launcher/Sources/Orchard/OrchardScene.swift.
+    @DisplayName("the random numbers stay the same, so the orchard does")
+    void seedsStayPut() {
         OrchardScene.Random stars = new OrchardScene.Random(7);
         assertEquals(0.3898297483912715, stars.unit());
         assertEquals(0.01678829452815611, stars.unit());
@@ -44,8 +43,8 @@ class OrchardSceneTest {
     }
 
     @Test
-    @DisplayName("the launcher's Background choices draw the hours the launcher shows")
-    void launcherChoices() {
+    @DisplayName("orchard.scene's names draw their hours")
+    void sceneNames() {
         assertEquals(12.0, OrchardScene.hour("day"));
         assertEquals(18.4, OrchardScene.hour("sunset"));
         assertEquals(23.0, OrchardScene.hour("night"));
@@ -55,7 +54,7 @@ class OrchardSceneTest {
     }
 
     @Test
-    @DisplayName("the launcher's choice fixes the hour, and the screenshot hour wins over it")
+    @DisplayName("orchard.scene fixes the hour, and orchard.sceneHour wins over it")
     void chosenHour() {
         try {
             System.setProperty("orchard.scene", "sunset");

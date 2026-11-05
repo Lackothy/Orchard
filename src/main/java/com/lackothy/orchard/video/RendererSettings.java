@@ -79,7 +79,7 @@ public final class RendererSettings {
     private RendererSettings() {
     }
 
-    /** Whether the renderer is drawing: it is in Orchard's jar, and off on Mojang's renderer or beside Sodium or Iris. */
+    /** Whether all of the renderer is drawing: it is in Orchard's jar, off on Mojang's renderer, and only its backend beside Sodium. */
     public static boolean present() {
         return Switch.ON;
     }

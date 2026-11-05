@@ -4,18 +4,12 @@ import java.time.LocalTime;
 import java.util.function.DoubleUnaryOperator;
 
 /**
- * Orchard's backdrop for the menus outside a world: a blocky orchard on rolling hills at the time
- * of day it is on this Mac, with clouds drifting over. The launcher draws the same scene from the
- * same seeds ({@code OrchardScene.swift}), so the game opens onto the picture it was started from.
+ * The loading screen's backdrop: a blocky orchard on rolling hills at the time of day it is on
+ * this Mac, with clouds drifting over, drawn without its sun or moon (the loading bar has its own).
  *
- * <p>Everything is whole blocks of whole GUI pixels, so neighbouring blocks meet on pixel edges
- * and the canvas's antialiasing leaves no seams between them. Only the clouds move, and not under
- * Reduce Motion, which the launcher passes as {@code orchard.reduceMotion}. Its Background choice
- * fixes the time of day with {@code orchard.scene}, and {@code orchard.sceneHour} fixes the hour
- * exactly, for screenshots.
- *
- * <p>The loading screen draws it too, without its sun or moon and on pixels of its own, and
- * grows it in at the end with {@link #growth} and {@link #sunAlpha}.
+ * <p>Everything is whole blocks of whole pixels, so neighbouring blocks meet on pixel edges. Only
+ * the clouds move, and not under the Mac's Reduce Motion ({@link #REDUCE_MOTION}). For screenshots,
+ * {@code orchard.scene} fixes the time of day and {@code orchard.sceneHour} the hour exactly.
  */
 public final class OrchardScene {
 
@@ -32,10 +26,8 @@ public final class OrchardScene {
         {24, 0x070B1F, 0x16224A},
     };
 
-    /** How far grown the trees are, 0 to 1, left to right; the loading screen's ending sets it. */
-    public static double growth = 1;
-    /** How clear the sun or moon is: the loading screen hands its own over to it. */
-    public static double sunAlpha = 1;
+    /** Reduce Motion in the Mac's Accessibility settings, read once, or {@code -Dorchard.reduceMotion=true}. */
+    public static final boolean REDUCE_MOTION = Boolean.getBoolean("orchard.reduceMotion") || macReduceMotion();
 
     private final double hour;
     private final Rgb skyTop;
@@ -47,7 +39,6 @@ public final class OrchardScene {
 
     private Surface c;
     private double grown = 1;
-    private double sunShown = 1;
     private Runnable beforeLand;
     private float width;
     private float height;
@@ -63,14 +54,6 @@ public final class OrchardScene {
         golden = Math.max(bump(hour, 6.4), bump(hour, 18.4));
     }
 
-    /** Draws the scene over the whole of a {@code width} by {@code height} area at the origin. */
-    public static void draw(Canvas canvas, float width, float height) {
-        OrchardScene scene = new OrchardScene(hour());
-        scene.grown = growth;
-        scene.sunShown = sunAlpha;
-        scene.paint(canvas, width, height, drift());
-    }
-
     /**
      * The scene without its sun or moon, as the loading screen's backdrop: trees grown to
      * {@code growth}, and {@code beforeLand} drawn over the sky, behind the hills.
@@ -78,14 +61,28 @@ public final class OrchardScene {
     public static void backdrop(Surface surface, float width, float height, double growth, Runnable beforeLand) {
         OrchardScene scene = new OrchardScene(hour());
         scene.grown = growth;
-        scene.sunShown = 0;
         scene.beforeLand = beforeLand;
         scene.paint(surface, width, height, drift());
     }
 
-    /** Wall-clock seconds, as the launcher's clouds use, so both drift through the same place. */
+    /** Wall-clock seconds, so the clouds drift on from where they were the last time. */
     private static double drift() {
-        return Boolean.getBoolean("orchard.reduceMotion") ? 0 : System.currentTimeMillis() / 1000.0;
+        return REDUCE_MOTION ? 0 : System.currentTimeMillis() / 1000.0;
+    }
+
+    /** False off a Mac, or when the setting has never been switched on (macOS then has no such key). */
+    private static boolean macReduceMotion() {
+        try {
+            Process read = new ProcessBuilder("/usr/bin/defaults", "read", "com.apple.universalaccess", "reduceMotion")
+                .redirectErrorStream(true).start();
+            String value = new String(read.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).strip();
+            return read.waitFor(2, java.util.concurrent.TimeUnit.SECONDS) && read.exitValue() == 0 && value.equals("1");
+        } catch (java.io.IOException | RuntimeException e) {
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     /** Where the sun (or by night the moon) is: its centre and side, in a scene this size. */
@@ -110,14 +107,14 @@ public final class OrchardScene {
         return hour >= 5 && hour < 19.5;
     }
 
-    /** The hour to draw, 0 to 24: {@code orchard.sceneHour}, else the launcher's choice, else the clock's. */
+    /** The hour to draw, 0 to 24: {@code orchard.sceneHour}, else {@code orchard.scene}'s, else the clock's. */
     public static double hour() {
         String fixed = System.getProperty("orchard.sceneHour");
         if (fixed != null) {
             try {
                 return Double.parseDouble(fixed);
             } catch (NumberFormatException e) {
-                // Fall through to the launcher's choice.
+                // Fall through to orchard.scene.
             }
         }
         Double chosen = hour(System.getProperty("orchard.scene"));
@@ -129,8 +126,8 @@ public final class OrchardScene {
     }
 
     /**
-     * The hour the launcher's Background choice shows ({@code SceneTime.swift}), or null to follow
-     * the clock, as Auto does and anything unknown should.
+     * The hour {@code orchard.scene} names (day, sunset or night), or null to follow the clock, as
+     * anything else does.
      */
     static Double hour(String scene) {
         if (scene == null) {
@@ -193,26 +190,6 @@ public final class OrchardScene {
             }
         }
 
-        // The sun by day, the moon by night, each rising on the left and setting on the right.
-        if (sunShown <= 0) {
-            return;
-        }
-        boolean sun = sunUp(hour);
-        float[] at = sun(width, height);
-        float x = at[0];
-        float y = at[1];
-        float side = at[2];
-        float glow = side * (sun ? 4 : 3);
-        Rgb halo = new Rgb(sun ? 0xFFE9B8 : 0xC9D6FF);
-        c.shadow(x - side / 2, y - side / 2, side, side, side / 2, glow * 0.75f, halo.argb((sun ? 0.6 : 0.24) * sunShown));
-        float left = x - side / 2;
-        float top = y - side / 2;
-        c.rect(left, top, side, side, b * 0.3f, new Rgb(sun ? 0xFFF4D8 : 0xE6EAF4).argb(sunShown));
-        if (!sun) {
-            int crater = new Rgb(0xC2C9DA).argb(sunShown);
-            c.rect(left + b * 0.6f, top + b * 0.7f, b * 0.7f, b * 0.7f, 0, crater);
-            c.rect(left + b * 1.8f, top + b * 1.7f, b * 0.5f, b * 0.5f, 0, crater);
-        }
     }
 
     // ── clouds ──
@@ -422,7 +399,7 @@ public final class OrchardScene {
         }
     }
 
-    /** SplitMix64, as the launcher uses: the same scene every launch, without storing it. */
+    /** SplitMix64: the same scene every launch, without storing it. */
     static final class Random {
         private long state;
 

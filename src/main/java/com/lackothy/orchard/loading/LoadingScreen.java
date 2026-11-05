@@ -51,7 +51,7 @@ public final class LoadingScreen {
     /** {@code fadeIn}: it fades in over the menu, as for a reload, rather than opening the game. */
     public LoadingScreen(boolean fadeIn) {
         this.fadeIn = fadeIn;
-        this.ending = Boolean.getBoolean("orchard.reduceMotion") ? Ending.FADE : VideoOptions.ENDING.get();
+        this.ending = OrchardScene.REDUCE_MOTION ? Ending.FADE : VideoOptions.ENDING.get();
     }
 
     /**
@@ -96,11 +96,8 @@ public final class LoadingScreen {
         } else {
             Sun at = loader.picture(layer, f, 1, tl, ending.withSun);
             float[] sun = OrchardScene.sun(guiWidth, guiHeight);
-            Ending.Target goal = new Ending.Target(sun[0] / scale, sun[1] / scale, sun[2] / scale / (10.0 * f.s()),
-                minecraft.level == null);
+            Ending.Target goal = new Ending.Target(sun[0] / scale, sun[1] / scale, sun[2] / scale / (10.0 * f.s()));
             if (ending == Ending.SUNRISE) {
-                OrchardScene.growth = Ease.part(k, 0.3, 0.75);
-                OrchardScene.sunAlpha = Ease.part(k, 0.8, 1);
                 fadeTitleIn(minecraft);
             }
             ending.compose(out, layer, at, f, k, goal);
@@ -122,10 +119,8 @@ public final class LoadingScreen {
         return false;
     }
 
-    /** Lets go of the texture and gives the orchard back its trees and sun. */
+    /** Lets go of the texture. */
     public void close(Minecraft minecraft) {
-        OrchardScene.growth = 1;
-        OrchardScene.sunAlpha = 1;
         if (texture != null) {
             minecraft.getTextureManager().release(TEXTURE);
             texture = null;

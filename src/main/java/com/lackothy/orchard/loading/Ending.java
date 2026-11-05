@@ -12,7 +12,7 @@ import static com.lackothy.orchard.loading.Ease.part;
  */
 public enum Ending {
 
-    /** The sun rises into the orchard's sky as the trees grow in under it and the menu fades up. */
+    /** The sun rises into the sky and fades as the menu fades up. */
     SUNRISE("Sunrise", 1.8, false) {
         @Override
         void compose(Pixels out, Pixels from, Sun last, Frame f, double k, Target target) {
@@ -23,7 +23,7 @@ public enum Ending {
             double m = inOut(part(k, 0, 0.55));
             Sun sun = new Sun(lerp(last.x, target.x(), m), lerp(last.y, target.y(), m) - Math.sin(Math.PI * m) * f.height() * 0.08);
             sun.scale = lerp(last.scale, target.scale(), m);
-            sun.clear = target.orchard() ? 1 - part(k, 0.8, 1) : 1 - part(k, 0.45, 0.75);
+            sun.clear = 1 - part(k, 0.45, 0.75);
             sun.draw(out, f);
         }
     },
@@ -127,8 +127,8 @@ public enum Ending {
         }
     };
 
-    /** Where the sun goes in the menu's orchard, at what size, and whether the orchard is there at all. */
-    record Target(double x, double y, double scale, boolean orchard) {
+    /** Where the sun goes over the title screen, and at what size. */
+    record Target(double x, double y, double scale) {
     }
 
     public final String label;

@@ -65,7 +65,7 @@ class LoadingFramesTest {
                 Pixels from = new Pixels(WIDTH, HEIGHT);
                 Sun last = Loader.COMET.picture(from, f, 1, 3.5, ending.withSun);
                 Pixels out = new Pixels(WIDTH, HEIGHT);
-                ending.compose(out, from, last, f, k, new Ending.Target(300, 60, 2.1 / 2, true));
+                ending.compose(out, from, last, f, k, new Ending.Target(300, 60, 2.1 / 2));
                 if (k == 0) {
                     assertEquals(1.0, opaque(out), ending + "'s first frame");
                 }

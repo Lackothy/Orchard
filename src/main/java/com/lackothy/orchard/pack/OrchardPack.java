@@ -32,18 +32,20 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
- * The Orchard Pack: resource packs the launcher downloads from Modrinth into the instance's
- * {@code orchard-pack} folder at Play (OrchardPack.swift), shown as one pack named "Orchard" and
- * loaded as one, always on. Orchard never carries their files, as most are All Rights Reserved. Each part opens
+ * The Orchard Pack: resource packs that PackDownloads fetches from Modrinth into the game folder's
+ * {@code orchard-pack}, shown as one pack named "Orchard" and loaded as one, always on. Orchard never carries their files, as most are All Rights Reserved. Each part opens
  * as it would on its own, its overlays included, lowest first, so where two parts have the same
  * file the one listed later wins. Without the folder's {@code order.txt} there is no pack.
  */
 public final class OrchardPack implements RepositorySource {
 
-    /** Not "orchard": that is Fabric's pack of Orchard's own resources (its shaders and menus), which this one would replace. */
+    /** Not the mod's id: that is Fabric's pack of the mod's own resources (the menu's text and textures), which this one would replace. */
     public static final String ID = "orchard_pack";
     public static final String FOLDER = "orchard-pack";
     private static final Logger LOGGER = LogUtils.getLogger();
+
+    /** Whether the game has looked for the packs yet: once it has, packs PackDownloads adds need a reload. */
+    static volatile boolean looked;
 
     private final Path folder;
 
@@ -69,6 +71,7 @@ public final class OrchardPack implements RepositorySource {
 
     /** order.txt's packs that are there and read: a line each, project ID, file name and title split by tabs. */
     private List<Part> parts() {
+        looked = true;
         Path order = folder.resolve("order.txt");
         if (!Files.isRegularFile(order)) {
             return List.of();

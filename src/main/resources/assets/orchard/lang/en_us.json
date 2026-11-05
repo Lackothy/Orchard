@@ -76,9 +76,5 @@
   "rso.options.always_show_action_buttons.name": "Always Show Action Buttons",
   "rso.options.always_show_action_buttons.tooltip": "Keeps reset and undo buttons visible when their overlay is enabled, drawing unavailable actions as disabled.",
   "rso.options.value.milliseconds": "%s ms",
-  "rso.options.value.results": "%s results",
-  "orchard.key.left.command": "Left Command",
-  "orchard.key.right.command": "Right Command",
-  "orchard.key.left.option": "Left Option",
-  "orchard.key.right.option": "Right Option"
+  "rso.options.value.results": "%s results"
 }

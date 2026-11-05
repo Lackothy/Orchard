@@ -1,9 +1,8 @@
 package com.lackothy.orchard.ui;
 
 /**
- * What the orchard can be drawn on: Minecraft's GUI through {@link Canvas}, or the loading
- * screen's pixels, which exist before the GUI's shaders have loaded. Coordinates are floats in
- * GUI pixels.
+ * What the orchard is drawn on: the loading screen's pixels, which exist before the GUI's shaders
+ * have loaded. Coordinates are floats in GUI pixels.
  */
 public interface Surface {
 

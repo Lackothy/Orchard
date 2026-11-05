@@ -8,6 +8,6 @@
     "fabric-client-gametest": ["com.lackothy.orchard.gametest.ScreenshotTour"]
   },
   "depends": {
-    "orchard": "*"
+    "orchard_metal": "*"
   }
 }

@@ -1,4 +1,4 @@
-// Modified for Orchard: far terrain takes its small-GPU mode by itself under 10 GPU cores; nothing is applied or written when Switch has the renderer off. Metal Shaders stay off until asked for.
+// Modified for Orchard: far terrain takes its small-GPU mode by itself under 10 GPU cores; nothing is applied or written when Switch has the renderer off, and beside Sodium only mcopt.metal is read. Metal Shaders stay off until asked for.
 package mcopt.metal;
 
 import java.io.IOException;
@@ -38,13 +38,42 @@ public final class Profile {
 	public static synchronized void apply() {
 		if (applied) return;
 		applied = true;
-		if (!Switch.ON) return;
+		if (!Switch.ON) {
+			if (Switch.BACKEND) backendOnly();
+			return;
+		}
 		applyFlags();
 		// mcopt-shade: with the shaders on, our Distant Horizons rule (tested DH versions only, far terrain off, DH's fade
 		// fixed); off, upstream's
 		if (Boolean.parseBoolean(System.getProperty("mcopt.shade"))) distantHorizons();
 		else distantHorizonsOnOpenGl();
 		smallGpuFarTerrain();
+	}
+
+	/**
+	 * Beside Sodium only the backend runs, so no profile applies and no config file is written; only config/mcopt.properties'
+	 * mcopt.metal still counts, so the file can turn Metal off there too. Distant Horizons needs the compat mixin to draw on
+	 * Metal, which runs only with all of the renderer, so with DH the game uses Minecraft's own API (an explicit mcopt.metal
+	 * wins).
+	 */
+	private static void backendOnly() {
+		if (System.getProperty("mcopt.metal") == null) {
+			Path cfg = gameDir().resolve("config").resolve("mcopt.properties");
+			if (Files.isRegularFile(cfg)) {
+				Properties file = new Properties();
+				try (Reader r = Files.newBufferedReader(cfg, StandardCharsets.UTF_8)) {
+					file.load(r);
+				} catch (IOException e) {
+					System.out.println("[mcopt] profile: can't read " + cfg + ": " + e);
+				}
+				String metal = file.getProperty("mcopt.metal");
+				if (metal != null) System.setProperty("mcopt.metal", metal.trim());
+			}
+		}
+		if (System.getProperty("mcopt.metal") == null && DhCompat.loaded()) {
+			System.setProperty("mcopt.metal", "false");
+			System.out.println("[mcopt] Distant Horizons detected beside Sodium, using Minecraft's own graphics API (-Dmcopt.metal=true overrides)");
+		}
 	}
 
 	/** Far terrain costs most of the fps under 10 GPU cores, so it starts in its small mode there unless told which. */

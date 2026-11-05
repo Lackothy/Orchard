@@ -1,7 +1,5 @@
-// Modified for Orchard: closed chests and shulker boxes go into a section's terrain instead of its block entities (BakedBlockEntities).
 package mcopt.metal.own;
 
-import com.lackothy.orchard.video.BakedBlockEntities;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
@@ -23,7 +21,6 @@ import net.minecraft.client.renderer.block.BlockStateModelSet;
 import net.minecraft.client.renderer.block.FluidRenderer;
 import net.minecraft.client.renderer.block.FluidStateModelSet;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
-import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
@@ -184,11 +181,9 @@ public final class OwnMesher {
 						if (ownVis != null) ownVis.setOpaque(i & 15, i >> 4 & 15, i >> 8);
 						else visGraph.setOpaque(pos);
 					}
-					BlockStateModel baked = null;
 					if (blockState.hasBlockEntity()) {
 						BlockEntity blockEntity = region.getBlockEntity(pos);
-						if (blockEntity != null) baked = BakedBlockEntities.model(blockState, blockEntity);
-						if (blockEntity != null && baked == null && startedLayers != null) results.blockEntities.add(blockEntity);
+						if (blockEntity != null && startedLayers != null) results.blockEntities.add(blockEntity);
 					}
 					FluidState fluidState = blockState.getFluidState();
 					if (!fluidState.isEmpty()) {
@@ -198,15 +193,15 @@ public final class OwnMesher {
 					if (blockState.getRenderShape() == RenderShape.MODEL && api != null) {
 						// vanilla's region, not OwnRegion: Fabric API extends RenderSectionRegion (block entity render data, biomes) for FRAPI models
 						api.block(SectionPos.sectionRelative(pos.getX()), SectionPos.sectionRelative(pos.getY()), SectionPos.sectionRelative(pos.getZ()), region, pos,
-							blockState, baked != null ? baked : blockModelSet.get(blockState), blockState.getSeed(pos));
+							blockState, blockModelSet.get(blockState), blockState.getSeed(pos));
 					} else if (blockState.getRenderShape() == RenderShape.MODEL && ownRenderer != null) {
 						ownRenderer.tesselateBlock(ModelBlockRenderer.forceOpaque(cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
 							SectionPos.sectionRelative(pos.getX()), SectionPos.sectionRelative(pos.getY()), SectionPos.sectionRelative(pos.getZ()), own, pos,
-							blockState, baked != null ? baked : blockModelSet.get(blockState), blockState.getSeed(pos));
+							blockState, blockModelSet.get(blockState), blockState.getSeed(pos));
 					} else if (blockState.getRenderShape() == RenderShape.MODEL) {
 						blockRenderer.tesselateBlock(ModelBlockRenderer.forceOpaque(cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
 							SectionPos.sectionRelative(pos.getX()), SectionPos.sectionRelative(pos.getY()), SectionPos.sectionRelative(pos.getZ()), level, pos,
-							blockState, baked != null ? baked : blockModelSet.get(blockState), blockState.getSeed(pos));
+							blockState, blockModelSet.get(blockState), blockState.getSeed(pos));
 					}
 				} catch (Throwable t) {
 					CrashReport report = CrashReport.forThrowable(t, "Tesselating block in world");

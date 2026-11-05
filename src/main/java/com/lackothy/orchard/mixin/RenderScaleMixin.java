@@ -1,6 +1,5 @@
 package com.lackothy.orchard.mixin;
 
-import com.lackothy.orchard.video.DroppedItemLimit;
 import com.lackothy.orchard.video.RenderScale;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.minecraft.client.renderer.GameRenderer;
@@ -14,12 +13,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Each frame's item limit (DroppedItemLimit), and render scale: from the world's drawing to its
- * post effects, Minecraft's main target and the hand's depth are RenderScale's smaller ones; after
- * them the world is scaled up into the real main target, which the HUD and menus are then drawn on.
+ * Render scale: from the world's drawing to its post effects, Minecraft's main target and the
+ * hand's depth are RenderScale's smaller ones; after them the world is scaled up into the real main
+ * target, which the HUD and menus are then drawn on. Apart from GameRendererMixin, as Orchard Metal
+ * has this and not that.
  */
 @Mixin(GameRenderer.class)
-abstract class GameRendererMixin {
+abstract class RenderScaleMixin {
 
     @Shadow
     @Final
@@ -36,12 +36,6 @@ abstract class GameRendererMixin {
 
     @Unique
     private RenderTarget orchard$fullHand;
-
-    /** A frame's entities are picked while it is extracted: the item limit is worked out from the last one's. */
-    @Inject(method = "extract", at = @At("HEAD"))
-    private void orchard$nextFrame(CallbackInfo ci) {
-        DroppedItemLimit.nextFrame();
-    }
 
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel()V"))
     private void orchard$drawWorldSmaller(CallbackInfo ci) {

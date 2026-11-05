@@ -14,7 +14,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The Metal page's render scale: the world is drawn into targets smaller than the window, and
  * MetalFX's spatial scaler takes it up to the window's size before the HUD and menus are drawn
- * over it, so they stay sharp. GameRendererMixin swaps the smaller targets in for Minecraft's main
+ * over it, so they stay sharp. RenderScaleMixin swaps the smaller targets in for Minecraft's main
  * one and the hand's depth while the world draws (mcopt reads the size from the main target, so
  * its terrain follows); the glowing outline's target is kept the world's size too.
  */

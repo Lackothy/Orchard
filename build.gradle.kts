@@ -24,8 +24,8 @@ dependencies {
 }
 
 // ── The Metal renderer ──
-// A modified copy of mcopt (renderer/, see its NOTICE), built into Orchard's jar. It switches
-// itself off when the launcher passes -Dorchard.renderer=mojang or Sodium or Iris is loaded.
+// A modified copy of mcopt (renderer/, see its NOTICE), built into the jar. Beside Sodium only its
+// backend runs, and beside an Iris that isn't set to Vulkan none of it (mcopt.metal.Switch).
 sourceSets.main {
     java.srcDir("renderer/src/main/java")
     resources.srcDir("renderer/src/main/resources")
@@ -52,9 +52,9 @@ val compileNative by tasks.registering(Exec::class) {
 }
 
 // ── Client game tests ──
-// `./gradlew runClientGameTest` boots a real client and screenshots Minecraft's
-// menus on the orchard (src/gametest). Not part of `build`: it opens a game
-// window and takes a minute.
+// `./gradlew runClientGameTest` boots a real client and screenshots the loading
+// screen and the video settings (src/gametest). Not part of `build`: it opens a
+// game window and takes a minute.
 fabricApi {
     configureTests {
         createSourceSet = true
@@ -69,6 +69,12 @@ loom {
     runs {
         configureEach {
             vmArg("--enable-native-access=ALL-UNNAMED")
+        }
+        // `./gradlew runClient` (game dir run/): -PextraMods=a.jar:b.jar adds other mods beside it
+        // (Sodium and Iris, as Lunar bundles them), and -Pjvm="-Da=b -Dc=d" adds properties.
+        named("client") {
+            findProperty("jvm")?.toString()?.split(" ")?.filter { it.isNotBlank() }?.forEach { vmArg(it) }
+            findProperty("extraMods")?.let { vmArg("-Dfabric.addMods=$it") }
         }
         named("clientGameTest") {
             vmArg("-Dorchard.screenshots=${layout.buildDirectory.dir("orchard-screenshots").get().asFile}")
@@ -98,7 +104,7 @@ tasks.test {
     val testRun = layout.buildDirectory.dir("test-run")
     workingDir(testRun)
     doFirst { testRun.get().asFile.mkdirs() }
-    // MacPower's test calls macOS through FFM, as the launched game may.
+    // As in the game's runs, where the renderer reaches its native library through FFM.
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     testLogging {
         events("passed", "skipped", "failed")
@@ -162,9 +168,7 @@ val gitStatus: String by lazy {
     if (status.isBlank()) "clean" else "dirty"
 }
 
-tasks.processResources {
-    dependsOn(compileNative)
-    from(layout.buildDirectory.dir("natives"))
+fun ProcessResources.stampModJson() {
     filteringCharset = "UTF-8"
     // Declared as inputs, or Gradle reuses the last fabric.mod.json after a
     // commit and the jar reports the previous version.
@@ -183,8 +187,14 @@ tasks.processResources {
     }
 }
 
+tasks.processResources {
+    dependsOn(compileNative)
+    from(layout.buildDirectory.dir("natives"))
+    stampModJson()
+}
+
 tasks.jar {
-    archiveFileName.set("Orchard-${gitBranch}-${gitCommitId}-${gitStatus}.jar")
+    archiveFileName.set("OrchardMetal-${gitBranch}-${gitCommitId}-${gitStatus}.jar")
     destinationDirectory.set(layout.projectDirectory.dir("jars"))
     from(files("LICENSE", "NOTICE")) {
         into("licenses/orchard")

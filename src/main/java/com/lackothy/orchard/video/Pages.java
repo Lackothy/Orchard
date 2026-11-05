@@ -1,14 +1,10 @@
 package com.lackothy.orchard.video;
 
+import com.lackothy.Orchard;
 import com.lackothy.orchard.loading.Ending;
 import com.lackothy.orchard.loading.Loader;
 import com.lackothy.orchard.loading.Rehearsal;
-import com.lackothy.orchard.mac.MacPower;
-import com.lackothy.orchard.mac.PowerLimit;
 import com.lackothy.orchard.video.RendererSettings.Api;
-import com.lackothy.orchard.video.VideoOptions.Corner;
-import com.lackothy.orchard.video.VideoOptions.FrameRate;
-import com.lackothy.orchard.video.VideoOptions.Limit;
 import com.mojang.blaze3d.systems.RenderSystem;
 import mcopt.metal.Switch;
 import mcopt.metal.shade.Shade;
@@ -18,24 +14,20 @@ import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * What the video settings hold: groups down the side, as Reese's Sodium Options groups each mod's
- * pages under its name, then each group's pages, each page's sections, and their rows. Between
- * them they have every option of Minecraft's own Video Settings: Minecraft's group the display,
- * frame rate and quality, Orchard's the rest (clouds and weather on World, entity distance and
- * shadows on Entities, particles on Particles) beside its own switches. The rest of Minecraft's
- * Options menu stays Minecraft's.
+ * pages under its name, then each group's pages, each page's sections, and their rows. Minecraft's
+ * group has every option of Minecraft's own Video Settings, Orchard's the loading screen, and the
+ * Metal renderer's its own. The rest of Minecraft's Options menu stays Minecraft's.
  */
 public final class Pages {
 
@@ -71,8 +63,7 @@ public final class Pages {
         List<Group> groups = new ArrayList<>();
         groups.add(new Group("Minecraft", SharedConstants.getCurrentVersion().name(), texture("block/grass_block_side"),
             MINECRAFT, List.of(video(o), quality(o))));
-        groups.add(new Group("Orchard", version("orchard"), texture("item/apple"), ORCHARD,
-            List.of(animations(), particles(o), world(o), entities(o), overlay(), battery(), loading())));
+        groups.add(new Group("Orchard", version(Orchard.METAL_ID), texture("item/apple"), ORCHARD, List.of(loading())));
         if (RendererSettings.present()) {
             groups.add(new Group("Metal renderer", Switch.VERSION, texture("item/iron_ingot"), METAL,
                 List.of(metal())));
@@ -99,7 +90,8 @@ public final class Pages {
 
     private static Page video(Options o) {
         List<Row> display = new ArrayList<>(List.of(
-            vanilla(o.renderDistance(), "How far away the world is drawn. Each step costs more than the last. Past 32 it needs more memory (the launcher's Settings), and a server only sends as far as it allows."),
+            vanilla(o.renderDistance(), "How far away the world is drawn. Each step costs more than the last, and a "
+                + "server only sends as far as it allows."),
             vanilla(o.simulationDistance(), "How far away mobs move and crops grow. Lower is easier on the processor."),
             vanilla(o.guiScale(), "How big menus and the HUD are drawn."),
             vanilla(o.fullscreen(), null),
@@ -145,7 +137,7 @@ public final class Pages {
         if (!Switch.ON) {
             List<Row> rows = new ArrayList<>();
             if (MAC) {
-                rows.add(new Row.Note(Component.literal("Metal is off. " + Switch.WHY_OFF)));
+                rows.add(new Row.Note(Component.literal(Switch.BACKEND ? Switch.WHY_BACKEND_ONLY : "Metal is off. " + Switch.WHY_OFF)));
             }
             rows.add(vanilla(o.preferredGraphicsBackend(), null));
             return new Section("Graphics API", rows);
@@ -167,156 +159,21 @@ public final class Pages {
                     + "Wider costs more each time a chunk is built."),
                 vanilla(o.cutoutLeaves(), null),
                 vanilla(o.improvedTransparency(), null),
-                new Row.Switch("Faster Improved Transparency", "With Improved Transparency on, Minecraft draws every "
-                    + "see-through face three times, even the ones turned away from you that it then hides. This leaves "
-                    + "those out, so big builds of glass or water cost far less. It looks the same.",
-                    VideoOptions.FASTER_TRANSPARENCY),
                 vanilla(o.chunkSectionFadeInTime(), "How long new chunks take to fade in."),
                 vanilla(o.prioritizeChunkUpdates(), null))),
             new Section("Textures", List.of(
                 vanilla(o.mipmapLevels(), "Smooths textures in the distance."),
                 vanilla(o.textureFiltering(), null),
-                vanilla(o.maxAnisotropyBit(), "Keeps textures sharp at steep angles. Needs Anisotropic filtering.")))));
-    }
-
-    private static Page animations() {
-        return new Page("Animations", List.of(
-            new Section("Animated textures", List.of(
-                new Row.Switch("All animations", "Moving textures: water, lava, fire, portals and the rest. "
-                    + "Turning them off saves a little work every tick.", VideoOptions.ANIMATIONS),
-                new Row.Switch("Water", "Still and flowing water.", VideoOptions.ANIMATE_WATER, VideoOptions.ANIMATIONS),
-                new Row.Switch("Lava", "Still and flowing lava.", VideoOptions.ANIMATE_LAVA, VideoOptions.ANIMATIONS),
-                new Row.Switch("Fire", "Fire, soul fire and campfires.", VideoOptions.ANIMATE_FIRE, VideoOptions.ANIMATIONS),
-                new Row.Switch("Portals", "Nether portals.", VideoOptions.ANIMATE_PORTAL, VideoOptions.ANIMATIONS),
-                new Row.Switch("Sculk", "Sculk, its sensors and shriekers.", VideoOptions.ANIMATE_SCULK, VideoOptions.ANIMATIONS),
-                new Row.Switch("Everything else", "Prismarine, magma, sea lanterns, kelp, command blocks "
-                    + "and every other moving texture.", VideoOptions.ANIMATE_OTHER, VideoOptions.ANIMATIONS)))));
-    }
-
-    private static Page particles(Options o) {
-        List<Row> each = new ArrayList<>();
-        BuiltInRegistries.PARTICLE_TYPE.keySet().stream()
-            .sorted(Comparator.comparing(Pages::particleName))
-            .forEach(id -> each.add(new Row.Switch(Component.literal(particleName(id)),
-                Component.literal("Particles of type " + id + "."), id,
-                () -> VideoOptions.particleShown(id), shown -> VideoOptions.showParticle(id, shown), true,
-                values -> values.on(VideoOptions.PARTICLES))));
-        return new Page("Particles", List.of(
-            new Section("Particles", List.of(
-                new Row.Switch("Particles", "Every particle. Off, none are made at all.", VideoOptions.PARTICLES),
-                vanilla(o.particles(), null),
-                new Row.Switch("Breaking blocks", "The pieces a block bursts into when it breaks.", VideoOptions.BLOCK_BREAKING,
-                    VideoOptions.PARTICLES),
-                new Row.Switch("Mining blocks", "The bits that fly off a block while it is being mined.",
-                    VideoOptions.BLOCK_CRACKING, VideoOptions.PARTICLES))),
-            new Section("Each particle", each)));
-    }
-
-    private static Page world(Options o) {
-        return new Page("World", List.of(
-            new Section("Sky", List.of(
-                new Row.Switch("Sky", "The sky itself. Off, it is a flat colour.", VideoOptions.SKY),
-                new Row.Switch("Sun and moon", "The sun and the moon.", VideoOptions.SUN_AND_MOON, VideoOptions.SKY),
-                new Row.Switch("Stars", "The stars at night.", VideoOptions.STARS, VideoOptions.SKY),
-                new Row.Switch("Sunrise and sunset", "The glow on the horizon at dawn and dusk.", VideoOptions.SUNRISE, VideoOptions.SKY),
+                vanilla(o.maxAnisotropyBit(), "Keeps textures sharp at steep angles. Needs Anisotropic filtering."))),
+            new Section("Sky and weather", List.of(
                 vanilla(o.cloudStatus(), null),
-                vanilla(o.cloudRange(), "How far away clouds are drawn."))),
-            new Section("Weather", List.of(
-                new Row.Switch("Rain and snow", "Falling rain and snow. The weather itself carries on.", VideoOptions.WEATHER),
+                vanilla(o.cloudRange(), "How far away clouds are drawn."),
                 vanilla(o.weatherRadius(), "How far around you rain and snow are drawn."),
                 vanilla(o.hideLightningFlash(), null))),
-            new Section("Fog", List.of(
-                new Row.Switch("Distance fog", "The haze that hides the edge of the world. Fog under water, in lava "
-                    + "and from blindness stays.", VideoOptions.FOG))),
-            new Section("Farms", List.of(
-                new Row.Switch("Wait out farm changes", "Minecraft redraws a whole 16-block section for every block "
-                    + "change in it. In places that keep changing, like farms, changes from the server wait up to 0.4 s, "
-                    + "and a section whose blocks are back as they were by then (a cactus that grew and broke) isn't "
-                    + "redrawn. Your own changes always show at once.", VideoOptions.FARM_CHANGES)))));
-    }
-
-    private static Page entities(Options o) {
-        return new Page("Entities", List.of(
-            new Section("Entities", List.of(
+            new Section("Entities and particles", List.of(
                 vanilla(o.entityDistanceScaling(), "How far away mobs and items are drawn, as a share of the usual."),
                 vanilla(o.entityShadows(), "The round shadow under mobs and items."),
-                new Row.Switch("Item frames", "Item frames and what is in them.", VideoOptions.ITEM_FRAMES),
-                new Row.Switch("Armor stands", "Armor stands and what they wear.", VideoOptions.ARMOR_STANDS),
-                new Row.Switch("Paintings", "Paintings on walls.", VideoOptions.PAINTINGS))),
-            new Section("Blocks", List.of(
-                new Row.Switch("Beacon beams", "The beam a working beacon sends up.", VideoOptions.BEACON_BEAMS),
-                new Row.Switch("Enchanting table books", "The book that floats over an enchanting table.",
-                    VideoOptions.ENCHANTING_BOOKS),
-                baked("Faster chests", "Closed chests are drawn along with the blocks around them, not one at a time. Big "
-                    + "storage rooms cost far less to draw. A chest changes back while its lid moves or it is being "
-                    + "broken, and its lighting can look slightly different as it does.", VideoOptions.BAKED_CHESTS),
-                baked("Faster shulker boxes", "Closed shulker boxes are drawn along with the blocks around them, not one at "
-                    + "a time. A box changes back while its lid moves or it is being broken, and its lighting can look "
-                    + "slightly different as it does.", VideoOptions.BAKED_SHULKER_BOXES))),
-            new Section("Items on the ground", List.of(
-                new Row.Switch("Stacks as one item", "Draws one item for each stack lying on the ground, where Minecraft "
-                    + "draws up to five for a big stack. Piles in farms cost far less to draw.", VideoOptions.ONE_ITEM_PER_STACK),
-                Row.Pick.of(Component.literal("Most items drawn"),
-                    Component.literal("Only the nearest so many items lying on the ground in view are drawn. The rest are "
-                        + "still there and can be picked up. It counts where a farm fills the view with drops."),
-                    VideoOptions.DROPPED_ITEMS, Arrays.asList(VideoOptions.DroppedItems.values()), d -> d.label))),
-            new Section("Name tags", List.of(
-                new Row.Switch("Players", "Names over other players.", VideoOptions.PLAYER_NAMES),
-                new Row.Switch("Everything else", "Names over mobs and things given a name tag.", VideoOptions.OTHER_NAMES)))));
-    }
-
-    /** A switch of BakedBlockEntities, which has every section compiled again when it changes. */
-    private static Row baked(String name, String description, VideoOptions.Toggle toggle) {
-        return new Row.Switch(Component.literal(name), Component.literal(description), toggle, toggle::on,
-            on -> BakedBlockEntities.set(toggle, on), toggle.initial(), values -> true);
-    }
-
-    private static Page overlay() {
-        return new Page("Overlay", List.of(
-            new Section("Frame rate", List.of(
-                Row.Pick.of(Component.literal("Show frame rate"),
-                    Component.literal("Frames a second in a corner of the screen. FPS and lows adds the slowest 1% "
-                        + "of the last few seconds and the time each frame takes."),
-                    VideoOptions.FRAME_RATE, Arrays.asList(FrameRate.values()), f -> f.label),
-                new Row.Switch("Coordinates", "Where you are, in blocks.", VideoOptions.COORDINATES),
-                Row.Pick.of(Component.literal("Corner"), Component.literal("Which corner the frame rate sits in."),
-                    VideoOptions.CORNER, Arrays.asList(Corner.values()), c -> c.label, Pages::overlayShown),
-                new Row.Switch(Component.literal("Background"),
-                    Component.literal("A dark plate behind the text, so it reads over snow and sky."),
-                    VideoOptions.OVERLAY_BACKGROUND, Pages::overlayShown))),
-            new Section("Notifications", List.of(
-                new Row.Switch("Advancements", "The pop-up when you make an advancement.", VideoOptions.ADVANCEMENT_TOASTS),
-                new Row.Switch("Recipes", "The pop-up when you unlock a recipe.", VideoOptions.RECIPE_TOASTS),
-                new Row.Switch("System messages", "Pop-ups about the game itself, such as a world failing to save.",
-                    VideoOptions.SYSTEM_TOASTS),
-                new Row.Switch("Tutorial hints", "The hints for new players, such as how to open your inventory.",
-                    VideoOptions.TUTORIAL_TOASTS)))));
-    }
-
-    private static Page battery() {
-        List<Limit> limits = Arrays.asList(Limit.values());
-        return new Page("Battery", List.of(
-            new Section("Frame rate limit", List.of(
-                Row.Pick.of(Component.literal("On battery"),
-                    Component.literal("The most frames a second while the Mac runs on its battery. Fewer frames run "
-                        + "cooler and last longer. It never raises the limit set on the Video page."),
-                    VideoOptions.BATTERY_LIMIT, limits, l -> l.label),
-                Row.Pick.of(Component.literal("In Low Power Mode"),
-                    Component.literal("The most frames a second while Low Power Mode is on, in System Settings > Battery "
-                        + "or Control Centre."),
-                    VideoOptions.LOW_POWER_LIMIT, limits, l -> l.label),
-                Row.Pick.of(Component.literal("When the Mac is hot"),
-                    Component.literal("The most frames a second while the Mac is hot enough to slow itself down. "
-                        + "Drawing less lets it cool, and the frame rate holds steadier than when it throttles."),
-                    VideoOptions.HOT_LIMIT, limits, l -> l.label))),
-            new Section("Now", List.of(
-                new Row.Live(Component.literal("This Mac"), Component.literal("What the Mac says about its power and "
-                    + "heat, every two seconds."), () -> Component.literal(MacPower.describe(MacPower.state()))),
-                new Row.Live(Component.literal("Limit now"), Component.literal("The lowest of the limits above that "
-                    + "applies now, if any."), () -> {
-                        int cap = PowerLimit.now();
-                        return Component.literal(cap == 0 ? "None" : cap + " FPS");
-                    })))));
+                vanilla(o.particles(), null)))));
     }
 
     private static Page loading() {
@@ -329,16 +186,12 @@ public final class Pages {
                     VideoOptions.LOADER, Arrays.asList(Loader.values()), l -> l.label),
                 Row.Pick.of(Component.literal("When it has loaded"),
                     Component.literal("What plays from the loading screen into the menu. Sunrise takes the sun up into the "
-                        + "orchard's sky as the trees grow in, Leaf gust blows the screen away, Burst flashes, Curtain parts "
+                        + "sky as the menu fades in, Leaf gust blows the screen away, Burst flashes, Curtain parts "
                         + "down the middle, and Iris opens a circle from the sun. With the Mac's Reduce Motion on, it fades."),
                     VideoOptions.ENDING, Arrays.asList(Ending.choices()), e -> e.label),
                 new Row.Action(Component.literal("Preview"),
                     Component.literal("Plays the loading screen now, over this menu, as it shows when Minecraft starts."),
                     Component.literal("Play"), () -> Rehearsal.play(Minecraft.getInstance()))))));
-    }
-
-    private static boolean overlayShown(Values values) {
-        return values.get(VideoOptions.FRAME_RATE) != FrameRate.OFF || values.on(VideoOptions.COORDINATES);
     }
 
     /** The shaders in the renderer: these two take effect at the next start, the rest is on their own screen once they're on. */
@@ -445,12 +298,5 @@ public final class Pages {
 
     private static Row vanilla(OptionInstance<?> option, String description) {
         return new Row.Vanilla(option, description == null ? null : Component.literal(description));
-    }
-
-    /** "minecraft:block_marker" as "Block marker", with the mod's id after anything not Minecraft's. */
-    static String particleName(Identifier id) {
-        String words = id.getPath().replace('_', ' ').replace('/', ' ');
-        String name = words.isEmpty() ? words : Character.toUpperCase(words.charAt(0)) + words.substring(1);
-        return id.getNamespace().equals(Identifier.DEFAULT_NAMESPACE) ? name : name + " (" + id.getNamespace() + ")";
     }
 }
