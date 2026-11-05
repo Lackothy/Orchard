@@ -1,3 +1,4 @@
+// Modified for Russet: applies nothing when Switch has the renderer off.
 /*
  * Copyright 2026 mcopt-shade contributors
  *

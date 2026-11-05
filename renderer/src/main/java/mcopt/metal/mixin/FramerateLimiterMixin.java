@@ -1,3 +1,4 @@
+// Modified for Russet: the interval comes from FrameWait, which knows when the display holds frames to its refreshes.
 package mcopt.metal.mixin;
 
 import mcopt.metal.FrameWait;

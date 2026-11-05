@@ -14,7 +14,7 @@ Upscaler *mc_upscaler_new(id<MTLTexture> in, id<MTLTexture> out) {
 	@autoreleasepool {
 		id<MTLDevice> device = in.device;
 		if (![MTLFXSpatialScalerDescriptor supportsDevice:device]) {
-			printf("orchard-render-scale: MetalFX's spatial scaler isn't supported on %s\n", device.name.UTF8String);
+			printf("russet-render-scale: MetalFX's spatial scaler isn't supported on %s\n", device.name.UTF8String);
 			return NULL;
 		}
 		MTLFXSpatialScalerDescriptor *d = [[MTLFXSpatialScalerDescriptor new] autorelease];
@@ -27,12 +27,12 @@ Upscaler *mc_upscaler_new(id<MTLTexture> in, id<MTLTexture> out) {
 		d.colorProcessingMode = MTLFXSpatialScalerColorProcessingModePerceptual;
 		id<MTLFXSpatialScaler> scaler = [d newSpatialScalerWithDevice:device];
 		if (!scaler) {
-			printf("orchard-render-scale: MetalFX made no scaler for %lux%lu to %lux%lu, format %lu\n", (unsigned long) in.width,
+			printf("russet-render-scale: MetalFX made no scaler for %lux%lu to %lux%lu, format %lu\n", (unsigned long) in.width,
 				(unsigned long) in.height, (unsigned long) out.width, (unsigned long) out.height, (unsigned long) in.pixelFormat);
 			return NULL;
 		}
 		if ((in.usage & scaler.colorTextureUsage) != scaler.colorTextureUsage) {
-			printf("orchard-render-scale: the world's target can't be read by MetalFX (usage %lu, needs %lu)\n",
+			printf("russet-render-scale: the world's target can't be read by MetalFX (usage %lu, needs %lu)\n",
 				(unsigned long) in.usage, (unsigned long) scaler.colorTextureUsage);
 			[scaler release];
 			return NULL;
@@ -45,7 +45,7 @@ Upscaler *mc_upscaler_new(id<MTLTexture> in, id<MTLTexture> out) {
 			t.usage = scaler.outputTextureUsage;
 			t.storageMode = MTLStorageModePrivate;
 			u->between = [device newTextureWithDescriptor:t];
-			u->between.label = @"Orchard render scale";
+			u->between.label = @"Russet render scale";
 		}
 		return u;
 	}

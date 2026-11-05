@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "id": "orchard-gametest",
+  "id": "russet-gametest",
   "version": "0.0.0",
-  "name": "Orchard Game Tests",
+  "name": "Russet Game Tests",
   "environment": "client",
   "entrypoints": {
-    "fabric-client-gametest": ["com.lackothy.orchard.gametest.ScreenshotTour"]
+    "fabric-client-gametest": ["com.lackothy.russet.gametest.ScreenshotTour"]
   },
   "depends": {
-    "orchard_metal": "*"
+    "russet": "*"
   }
 }

@@ -1,7 +1,7 @@
-Orchard's video settings (the package com.lackothy.orchard.menu, apart from menu.option) are a
+Russet's video settings (the package com.lackothy.russet.menu, apart from menu.option) are a
 modified copy of Reese's Sodium Options, https://github.com/FlashyReese/reeses-sodium-options,
 taken at tag mc26.3-2.2.5, as are its two icons (textures/gui/menu) and the rso.* strings in
-assets/orchard/lang/en_us.json. Each copied file says so in its first line. It is used under
+assets/russet/lang/en_us.json. Each copied file says so in its first line. It is used under
 this licence:
 
 The MIT License (MIT)

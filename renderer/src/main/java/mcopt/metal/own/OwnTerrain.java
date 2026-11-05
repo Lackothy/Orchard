@@ -1,6 +1,7 @@
+// Modified for Russet: see-through sections tested against the depth pyramid (TOCC), behind VideoOptions.HIDDEN_SEE_THROUGH.
 package mcopt.metal.own;
 
-import com.lackothy.orchard.video.VideoOptions;
+import com.lackothy.russet.video.VideoOptions;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.renderpearl.api.buffers.GpuBuffer;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;

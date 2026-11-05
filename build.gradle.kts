@@ -48,7 +48,7 @@ val compileNative by tasks.registering(Exec::class) {
 fabricApi {
     configureTests {
         createSourceSet = true
-        modId = "orchard-gametest"
+        modId = "russet-gametest"
         enableGameTests = false
         enableClientGameTests = true
         eula = true
@@ -65,14 +65,14 @@ loom {
             findProperty("extraMods")?.let { vmArg("-Dfabric.addMods=$it") }
         }
         named("clientGameTest") {
-            vmArg("-Dorchard.screenshots=${layout.buildDirectory.dir("orchard-screenshots").get().asFile}")
-            vmArg("-Dorchard.guiScale=${findProperty("guiScale") ?: 0}")
+            vmArg("-Drusset.screenshots=${layout.buildDirectory.dir("russet-screenshots").get().asFile}")
+            vmArg("-Drusset.guiScale=${findProperty("guiScale") ?: 0}")
             if (!hasProperty("metal")) {
-                vmArg("-Dorchard.renderer=mojang")
+                vmArg("-Drusset.renderer=mojang")
             }
             if (hasProperty("frames")) {
-                vmArg("-Dorchard.tour.frames=true")
-                findProperty("frameCases")?.let { vmArg("-Dorchard.tour.frames.cases=$it") }
+                vmArg("-Drusset.tour.frames=true")
+                findProperty("frameCases")?.let { vmArg("-Drusset.tour.frames.cases=$it") }
             }
             findProperty("jvm")?.toString()?.split(" ")?.filter { it.isNotBlank() }?.forEach { vmArg(it) }
             findProperty("extraMods")?.let { vmArg("-Dfabric.addMods=$it") }
@@ -160,10 +160,10 @@ tasks.processResources {
 }
 
 tasks.jar {
-    archiveFileName.set("OrchardMetal-${gitBranch}-${gitCommitId}-${gitStatus}.jar")
+    archiveFileName.set("Russet-${gitBranch}-${gitCommitId}-${gitStatus}.jar")
     destinationDirectory.set(layout.projectDirectory.dir("jars"))
     from(files("LICENSE", "NOTICE")) {
-        into("licenses/orchard")
+        into("licenses/russet")
     }
     from(files("renderer/LICENSE", "renderer/NOTICE", "renderer/LICENSES/MIT-Photon.txt")) {
         into("licenses/mcopt")

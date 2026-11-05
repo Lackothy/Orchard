@@ -1,3 +1,7 @@
+// Modified for Russet: see-through sections tested against the depth pyramid (frag_t_test, frag_t_sum, frag_t_copy).
+// Our own near terrain (mcopt.metal.own, -Dmcopt.own=true): GPU cull of every compiled section, then one instanced indirect
+// draw per layer that pulls its vertices from the arena. The shading is vanilla's core/terrain (terrain.vsh / terrain.fsh and
+// their includes fog, globals, sample_lightmap, texture_sampling), restated for vertex pulling.
 #include <metal_stdlib>
 using namespace metal;
 

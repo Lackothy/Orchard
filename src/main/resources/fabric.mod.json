@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "id": "orchard_metal",
+  "id": "russet",
   "version": "${version}",
-  "name": "Orchard Metal",
-  "description": "Metal drawing on Apple Silicon from a modified copy of mcopt by Noah Dunnagan, the Orchard Pack of resource packs (fetched from Modrinth), and Orchard's video settings and loading screen.",
+  "name": "Russet",
+  "description": "Metal drawing on Apple Silicon from a modified copy of mcopt by Noah Dunnagan, the Russet Pack of resource packs (fetched from Modrinth), and its own video settings and loading screen.",
   "authors": ["Lackothy"],
   "contributors": ["Noah Dunnagan (mcopt, Apache-2.0)", "Gael Quintanilla and contributors (Metal Shaders, Apache-2.0)", "FlashyReese (Reese's Sodium Options, MIT)"],
   "contact": { "sources": "https://github.com/Lackothy/Orchard" },
   "license": "PolyForm-Shield-1.0.0",
-  "icon": "assets/orchard/pack.png",
+  "icon": "assets/russet/pack.png",
   "environment": "client",
   "entrypoints": {
     "preLaunch": ["mcopt.metal.Preload"],
-    "client": ["com.lackothy.OrchardMetal"]
+    "client": ["com.lackothy.RussetClient"]
   },
   "mixins": [
-    "orchard-metal.mixins.json",
+    "russet.mixins.json",
     "mcopt-metal.mixins.json",
     "mcopt-metal-lod.mixins.json",
     "mcopt-metal-gen.mixins.json",
@@ -42,6 +42,7 @@
     "fabric-api": "*"
   },
   "breaks": {
-    "orchard": "*"
+    "orchard": "*",
+    "orchard_metal": "*"
   }
 }

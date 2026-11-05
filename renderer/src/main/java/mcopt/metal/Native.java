@@ -1,3 +1,4 @@
+// Modified for Russet: the calls for ScreenTimes (mc_shown_*) and RenderScale (mc_upscale*, upscale.m).
 package mcopt.metal;
 
 import java.io.IOException;

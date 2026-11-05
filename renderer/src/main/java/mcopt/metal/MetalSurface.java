@@ -1,3 +1,5 @@
+// Modified for Russet: vsync is always on (FIFO is the only present mode offered), the pacer is off unless asked for, and
+// FrameWait is told when the display holds frames to its refreshes.
 package mcopt.metal;
 
 import com.mojang.renderpearl.api.device.GpuSurface;
@@ -90,6 +92,9 @@ final class MetalSurface implements GpuSurfaceBackend {
 
 	@Override
 	public Collection<GpuSurface.PresentMode> supportedPresentModes() {
+		// Russet: vsync is always on with Metal, whatever the option says (Minecraft falls back to FIFO when IMMEDIATE and
+		// MAILBOX aren't offered). Vsync off stuttered at a steady frame rate on the Air, in a window and fullscreen, through
+		// mcopt's pacer and three tries of Russet's (see CLAUDE.md), and a 60 Hz screen shows 60 frames either way.
 		return List.of(GpuSurface.PresentMode.FIFO);
 	}
 

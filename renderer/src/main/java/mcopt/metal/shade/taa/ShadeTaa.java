@@ -1,3 +1,4 @@
+// Modified for Russet: the dynamic resolution aims no higher than the screen's refresh rate.
 /*
  * Copyright 2026 mcopt-shade contributors
  *

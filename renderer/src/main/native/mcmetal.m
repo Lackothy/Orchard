@@ -1,3 +1,7 @@
+// Modified for Russet: ScreenTimes' record of when each present reached the screen (mc_shown_*, shownWatch).
+// Thin C surface over Metal for the Java backend (called through java.lang.foreign).
+// Objects cross the boundary as retained pointers; Java owns them and hands them back to mc_release.
+// Built without ARC so ownership is explicit. Hot encoder calls allocate nothing, so they need no autorelease pool.
 #include <stdatomic.h>
 #import "mcmetal.h"
 #import <CoreVideo/CoreVideo.h>

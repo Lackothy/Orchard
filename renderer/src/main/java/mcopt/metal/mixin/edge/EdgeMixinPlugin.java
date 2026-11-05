@@ -1,3 +1,4 @@
+// Modified for Russet: applies nothing when Switch has the renderer off.
 package mcopt.metal.mixin.edge;
 
 import java.util.List;
