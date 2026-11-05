@@ -60,6 +60,10 @@ loom {
         configureEach {
             vmArg("--enable-native-access=ALL-UNNAMED")
         }
+        named("client") {
+            findProperty("jvm")?.toString()?.split(" ")?.filter { it.isNotBlank() }?.forEach { vmArg(it) }
+            findProperty("extraMods")?.let { vmArg("-Dfabric.addMods=$it") }
+        }
         named("clientGameTest") {
             vmArg("-Dorchard.screenshots=${layout.buildDirectory.dir("orchard-screenshots").get().asFile}")
             vmArg("-Dorchard.guiScale=${findProperty("guiScale") ?: 0}")
@@ -132,9 +136,7 @@ val gitStatus: String by lazy {
     if (status.isBlank()) "clean" else "dirty"
 }
 
-tasks.processResources {
-    dependsOn(compileNative)
-    from(layout.buildDirectory.dir("natives"))
+fun ProcessResources.stampModJson() {
     filteringCharset = "UTF-8"
     inputs.property("version", project.version)
     inputs.property("minecraftVersion", minecraftVersion)
@@ -151,8 +153,14 @@ tasks.processResources {
     }
 }
 
+tasks.processResources {
+    dependsOn(compileNative)
+    from(layout.buildDirectory.dir("natives"))
+    stampModJson()
+}
+
 tasks.jar {
-    archiveFileName.set("Orchard-${gitBranch}-${gitCommitId}-${gitStatus}.jar")
+    archiveFileName.set("OrchardMetal-${gitBranch}-${gitCommitId}-${gitStatus}.jar")
     destinationDirectory.set(layout.projectDirectory.dir("jars"))
     from(files("LICENSE", "NOTICE")) {
         into("licenses/orchard")

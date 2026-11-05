@@ -1,6 +1,5 @@
 package com.lackothy.orchard.mixin;
 
-import com.lackothy.orchard.video.DroppedItemLimit;
 import com.lackothy.orchard.video.RenderScale;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.minecraft.client.renderer.GameRenderer;
@@ -14,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
-abstract class GameRendererMixin {
+abstract class RenderScaleMixin {
 
     @Shadow
     @Final
@@ -31,11 +30,6 @@ abstract class GameRendererMixin {
 
     @Unique
     private RenderTarget orchard$fullHand;
-
-    @Inject(method = "extract", at = @At("HEAD"))
-    private void orchard$nextFrame(CallbackInfo ci) {
-        DroppedItemLimit.nextFrame();
-    }
 
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel()V"))
     private void orchard$drawWorldSmaller(CallbackInfo ci) {

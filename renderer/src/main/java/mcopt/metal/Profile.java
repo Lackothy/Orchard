@@ -21,11 +21,34 @@ public final class Profile {
 	public static synchronized void apply() {
 		if (applied) return;
 		applied = true;
-		if (!Switch.ON) return;
+		if (!Switch.ON) {
+			if (Switch.BACKEND) backendOnly();
+			return;
+		}
 		applyFlags();
 		if (Boolean.parseBoolean(System.getProperty("mcopt.shade"))) distantHorizons();
 		else distantHorizonsOnOpenGl();
 		smallGpuFarTerrain();
+	}
+
+	private static void backendOnly() {
+		if (System.getProperty("mcopt.metal") == null) {
+			Path cfg = gameDir().resolve("config").resolve("mcopt.properties");
+			if (Files.isRegularFile(cfg)) {
+				Properties file = new Properties();
+				try (Reader r = Files.newBufferedReader(cfg, StandardCharsets.UTF_8)) {
+					file.load(r);
+				} catch (IOException e) {
+					System.out.println("[mcopt] profile: can't read " + cfg + ": " + e);
+				}
+				String metal = file.getProperty("mcopt.metal");
+				if (metal != null) System.setProperty("mcopt.metal", metal.trim());
+			}
+		}
+		if (System.getProperty("mcopt.metal") == null && DhCompat.loaded()) {
+			System.setProperty("mcopt.metal", "false");
+			System.out.println("[mcopt] Distant Horizons detected beside Sodium, using Minecraft's own graphics API (-Dmcopt.metal=true overrides)");
+		}
 	}
 
 	private static void smallGpuFarTerrain() {

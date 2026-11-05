@@ -1,81 +1,72 @@
-# Orchard
+# Orchard Metal
 
-A Minecraft launcher for the Mac, with a renderer built on Apple's Metal.
-
-Orchard installs and starts Minecraft: Java Edition 26.3 with Fabric, and loads one mod of its own
-into the game. That mod draws the world through Metal instead of OpenGL, with no Sodium.
+A Fabric mod for Minecraft: Java Edition 26.3 that draws the game through Apple's Metal instead of
+OpenGL. It works in any Fabric launcher, Lunar Client's Fabric add-on included.
 
 **This is alpha software.** Expect bugs, and back up your worlds.
 
 ## What it does
 
-The launcher:
-
-- Keeps separate instances, each with its own mods, worlds and settings
-- Browses and installs mods, resource packs and shader packs from Modrinth
-- Downloads the game and its Java from Mojang, so Orchard carries neither
-- Adds a set of performance mods to each instance once, which you can remove
-- Reads crash reports and game logs for you
-
-In the game, on Apple silicon:
+On an Apple silicon Mac:
 
 - A Metal renderer with its own terrain drawing and culling, from [mcopt](https://github.com/noahdunnagan/mcopt)
 - Optional shaders drawn in Metal, from [Metal Shaders](https://github.com/GaelQuinta/minecraft-metal-shaders): shadows, god rays, volumetric clouds and reflective water
+- Optional far terrain past your render distance
 - Render scale through MetalFX, with the HUD left sharp
-- Chests and shulker boxes drawn as terrain, and see-through blocks skipped when they're hidden
-- A render distance of up to 64
-- Frame rate caps for battery, Low Power Mode and heat
+- See-through blocks skipped when they're hidden behind solid ones
+- The Orchard Pack: seven resource packs (Low Shield, Low Fire, Icons, Fancy Crops, Even Better Enchants, Fancy Beds and Fast Better Grass), which the game downloads from Modrinth on its first start
 - Video settings based on [Reese's Sodium Options](https://github.com/FlashyReese/reeses-sodium-options), and a custom loading screen
 
 ## Requirements
 
 - An Apple silicon Mac on macOS 26 or later
-- Your own copy of Minecraft: Java Edition
+- Minecraft 26.3 with Fabric Loader, Fabric API and Java 25
+
+Off a Mac, or on an older macOS, the renderer switches itself off and the game draws as usual.
 
 ## Install
 
-1. Download `Orchard-<version>.zip` from [Releases](https://github.com/Lackothy/Orchard/releases).
-2. Unzip it and move `Orchard.app` to Applications.
-3. Open it. macOS will refuse the first time, because Orchard has no Developer ID signature yet.
-   Go to System Settings > Privacy & Security and choose Open Anyway. If macOS says the app is
-   damaged, run `xattr -dr com.apple.quarantine /Applications/Orchard.app` once.
+Put `OrchardMetal-<version>.jar` in your instance's `mods` folder, next to Fabric API. In Lunar
+Client, add it in the Fabric add-on's Mods tab.
+
+## With Sodium and Iris
+
+Beside Sodium, only the Metal backend runs: Sodium draws the terrain, through Metal. The renderer's
+own terrain, far terrain and shaders stay off.
+
+Iris needs Minecraft's Graphics API set to Vulkan (`preferredGraphicsBackend:"vulkan"` in
+`options.txt`) and a restart. It then steps aside, and Metal goes first anyway. Left on Default,
+Iris keeps OpenGL and Metal switches itself off, saying so in the log.
 
 ## Turning on shaders
 
 In the game, open Options > Video Settings > Metal, turn on Shaders, press Apply and restart.
 They run hotter and lower the frame rate, and they're off until you ask for them.
 
-They're drawn by Orchard's renderer, so they don't load Iris or OptiFine packs. Shader packs still
-work through Iris, but that takes the game off Metal.
-
-## Known limits
-
-- **Microsoft sign-in isn't available yet.** It's built, but it needs an app ID approved by Mojang.
-  Until then Orchard plays with offline accounts only, so online-mode servers and Realms won't work.
-  To try your own approved ID: `defaults write com.lackothy.Orchard microsoftClientID <id>`
-- **Minecraft 26.3 only**, with Fabric.
-- **Not notarized**, hence the extra step when you first open it.
+They're drawn by the renderer itself, so they don't load Iris or OptiFine packs.
 
 ## Building
 
-You need Xcode's command line tools with Swift 6.2, and Java 25.
+You need Xcode's command line tools (for the native library) and Java 25.
 
 ```sh
-./gradlew build                      # the mod, into jars/
-launcher/Scripts/build-app.sh        # the app, into launcher/build/Orchard.app
+./gradlew build              # the mod, into jars/
+./gradlew runClient          # the game from source (game dir run/)
+./gradlew runClientGameTest  # a real client that screenshots the menus into build/orchard-screenshots
 ```
 
-`./gradlew runClient` starts the game from source, and `cd launcher && swift test` runs the
-launcher's tests.
+`runClient` takes `-PextraMods=a.jar:b.jar` to add other mods beside it, and `-Pjvm="-Da=b"` to add
+properties. `runClientGameTest` runs on Mojang's renderer unless given `-Pmetal`.
 
 ## Licence
 
-Orchard is under the [PolyForm Shield License 1.0.0](LICENSE), so it's source-available rather than
-open source. You can use it, change it and share your changes, but you can't provide anything that
-competes with Orchard, even for free, and selling Orchard or a copy of it counts as competing.
+Orchard Metal is under the [PolyForm Shield License 1.0.0](LICENSE), so it's source-available rather
+than open source. You can use it, change it and share your changes, but you can't provide anything
+that competes with it, even for free, and selling it or a copy of it counts as competing.
 
 `renderer/` and the video settings are modified copies of other projects, whose code keeps its own
-licences: see [NOTICE](NOTICE).
+licences: see [NOTICE](NOTICE). The Orchard Pack's packs are their authors' and are never carried in
+the jar.
 
 ## Credits
 

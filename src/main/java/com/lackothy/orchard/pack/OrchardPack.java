@@ -37,6 +37,8 @@ public final class OrchardPack implements RepositorySource {
     public static final String FOLDER = "orchard-pack";
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    static volatile boolean looked;
+
     private final Path folder;
 
     public OrchardPack(Path folder) {
@@ -58,6 +60,7 @@ public final class OrchardPack implements RepositorySource {
     }
 
     private List<Part> parts() {
+        looked = true;
         Path order = folder.resolve("order.txt");
         if (!Files.isRegularFile(order)) {
             return List.of();

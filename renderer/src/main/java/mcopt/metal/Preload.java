@@ -22,7 +22,7 @@ public final class Preload implements PreLaunchEntrypoint {
 	@Override
 	public void onPreLaunch() {
 		if (!Switch.ON) {
-			System.out.println("[Orchard] Metal is off. " + Switch.WHY_OFF);
+			System.out.println("[Orchard] " + (Switch.BACKEND ? Switch.WHY_BACKEND_ONLY : "Metal is off. " + Switch.WHY_OFF));
 			return;
 		}
 		if (!ENABLED) return;

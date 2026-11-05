@@ -18,8 +18,7 @@ public final class OrchardScene {
         {24, 0x070B1F, 0x16224A},
     };
 
-    public static double growth = 1;
-    public static double sunAlpha = 1;
+    public static final boolean REDUCE_MOTION = Boolean.getBoolean("orchard.reduceMotion") || macReduceMotion();
 
     private final double hour;
     private final Rgb skyTop;
@@ -29,7 +28,6 @@ public final class OrchardScene {
 
     private Surface c;
     private double grown = 1;
-    private double sunShown = 1;
     private Runnable beforeLand;
     private float width;
     private float height;
@@ -45,23 +43,29 @@ public final class OrchardScene {
         golden = Math.max(bump(hour, 6.4), bump(hour, 18.4));
     }
 
-    public static void draw(Canvas canvas, float width, float height) {
-        OrchardScene scene = new OrchardScene(hour());
-        scene.grown = growth;
-        scene.sunShown = sunAlpha;
-        scene.paint(canvas, width, height, drift());
-    }
-
     public static void backdrop(Surface surface, float width, float height, double growth, Runnable beforeLand) {
         OrchardScene scene = new OrchardScene(hour());
         scene.grown = growth;
-        scene.sunShown = 0;
         scene.beforeLand = beforeLand;
         scene.paint(surface, width, height, drift());
     }
 
     private static double drift() {
-        return Boolean.getBoolean("orchard.reduceMotion") ? 0 : System.currentTimeMillis() / 1000.0;
+        return REDUCE_MOTION ? 0 : System.currentTimeMillis() / 1000.0;
+    }
+
+    private static boolean macReduceMotion() {
+        try {
+            Process read = new ProcessBuilder("/usr/bin/defaults", "read", "com.apple.universalaccess", "reduceMotion")
+                .redirectErrorStream(true).start();
+            String value = new String(read.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).strip();
+            return read.waitFor(2, java.util.concurrent.TimeUnit.SECONDS) && read.exitValue() == 0 && value.equals("1");
+        } catch (java.io.IOException | RuntimeException e) {
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     public static float[] sun(float width, float height) {
@@ -156,25 +160,6 @@ public final class OrchardScene {
             }
         }
 
-        if (sunShown <= 0) {
-            return;
-        }
-        boolean sun = sunUp(hour);
-        float[] at = sun(width, height);
-        float x = at[0];
-        float y = at[1];
-        float side = at[2];
-        float glow = side * (sun ? 4 : 3);
-        Rgb halo = new Rgb(sun ? 0xFFE9B8 : 0xC9D6FF);
-        c.shadow(x - side / 2, y - side / 2, side, side, side / 2, glow * 0.75f, halo.argb((sun ? 0.6 : 0.24) * sunShown));
-        float left = x - side / 2;
-        float top = y - side / 2;
-        c.rect(left, top, side, side, b * 0.3f, new Rgb(sun ? 0xFFF4D8 : 0xE6EAF4).argb(sunShown));
-        if (!sun) {
-            int crater = new Rgb(0xC2C9DA).argb(sunShown);
-            c.rect(left + b * 0.6f, top + b * 0.7f, b * 0.7f, b * 0.7f, 0, crater);
-            c.rect(left + b * 1.8f, top + b * 1.7f, b * 0.5f, b * 0.5f, 0, crater);
-        }
     }
 
     private void clouds(double drift) {

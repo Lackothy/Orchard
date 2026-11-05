@@ -14,7 +14,7 @@ public final class MetalMixinPlugin implements IMixinConfigPlugin {
 	@Override public void onLoad(String mixinPackage) { }
 	@Override public String getRefMapperConfig() { return null; }
 	@Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-		return mcopt.metal.Switch.ON;
+		return mcopt.metal.Switch.BACKEND;
 	}
 	@Override public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) { }
 	@Override public List<String> getMixins() { return null; }

@@ -16,7 +16,7 @@ public enum Ending {
             double m = inOut(part(k, 0, 0.55));
             Sun sun = new Sun(lerp(last.x, target.x(), m), lerp(last.y, target.y(), m) - Math.sin(Math.PI * m) * f.height() * 0.08);
             sun.scale = lerp(last.scale, target.scale(), m);
-            sun.clear = target.orchard() ? 1 - part(k, 0.8, 1) : 1 - part(k, 0.45, 0.75);
+            sun.clear = 1 - part(k, 0.45, 0.75);
             sun.draw(out, f);
         }
     },
@@ -114,7 +114,7 @@ public enum Ending {
         }
     };
 
-    record Target(double x, double y, double scale, boolean orchard) {
+    record Target(double x, double y, double scale) {
     }
 
     public final String label;
