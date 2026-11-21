@@ -3,10 +3,10 @@
   "id": "russet",
   "version": "${version}",
   "name": "Russet",
-  "description": "Metal drawing on Apple Silicon from a modified copy of mcopt by Noah Dunnagan, the Russet Pack of resource packs (fetched from Modrinth), and its own video settings and loading screen.",
+  "description": "Metal drawing on Apple Silicon from a modified copy of mcopt by Noah Dunnagan, the Russet Pack of resource packs (fetched from Modrinth), and its own video settings and loading screen. NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.",
   "authors": ["Lackothy"],
-  "contributors": ["Noah Dunnagan (mcopt, Apache-2.0)", "Gael Quintanilla and contributors (Metal Shaders, Apache-2.0)", "FlashyReese (Reese's Sodium Options, MIT)"],
-  "contact": { "sources": "https://github.com/Lackothy/Orchard" },
+  "contributors": ["Noah Dunnagan (mcopt, Apache-2.0)", "Gael Quintanilla and contributors (Metal Shaders, Apache-2.0)", "FlashyReese (Reese's Sodium Options, MIT)", "pigcart (Particle Rain, MIT)"],
+  "contact": { "sources": "https://github.com/Lackothy/Orchard", "issues": "https://github.com/Lackothy/Orchard/issues" },
   "license": "PolyForm-Shield-1.0.0",
   "icon": "assets/russet/pack.png",
   "environment": "client",
@@ -33,7 +33,8 @@
     "mcopt-metal-shade-shadow.mixins.json",
     "mcopt-metal-shade-vl.mixins.json",
     "mcopt-metal-shade-light.mixins.json",
-    "mcopt-metal-shade-dims.mixins.json"
+    "mcopt-metal-shade-dims.mixins.json",
+    "russet-rain.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",

@@ -1,0 +1,136 @@
+package com.lackothy.russet.rain.config.gui;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.layouts.GridLayout;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import com.lackothy.russet.rain.ParticleLoader;
+import com.lackothy.russet.rain.config.ConfigManager;
+
+import java.lang.reflect.Field;
+
+public class ConfigScreen extends Screen {
+    final Object config;
+    final Object configDefault;
+    final Class<?> configGenericType;
+    WidgetList list;
+    protected final Screen lastScreen;
+    public final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this);
+    public static boolean shouldReloadResources = false;
+
+    public ConfigScreen(Screen lastScreen, Object config, Object configDefault, Class<?> configGenericType, Component title) {
+        super(title);
+        this.lastScreen = lastScreen;
+        this.config = config;
+        this.configDefault = configDefault;
+        this.configGenericType = configGenericType;
+    }
+    public ConfigScreen(Screen lastScreen, Object config, Object configDefault, Component title) {
+        super(title);
+        this.lastScreen = lastScreen;
+        this.config = config;
+        this.configDefault = configDefault;
+        this.configGenericType = null;
+    }
+
+    @Override
+    protected void init() {
+        addTitle();
+        addContents();
+        addFooter();
+
+        repositionElements();
+
+        layout.visitWidgets(this::addRenderableWidget);
+    }
+
+    protected void addTitle() {
+        layout.addToHeader(new StringWidget(title, font));
+    }
+
+    protected void addContents() {
+        list = new WidgetList(minecraft, width,
+                layout.getContentHeight(),
+                32, height - 32, 25);
+        WidgetUtil.addOptionWidgets(this);
+
+        layout.addToContents(list);
+    }
+
+    protected void addFooter() {
+        GridLayout.RowHelper row = layout.addToFooter(new GridLayout().columnSpacing(8)).createRowHelper(2);
+
+        final Button resetButton = Button.builder(
+                Component.translatable("controls.reset").append(" ").append(this.title),
+                (button) -> {
+                    resetConfig();
+                    refresh();
+                }
+        ).build();
+
+        final Button doneButton = Button.builder(
+                CommonComponents.GUI_DONE,
+                (button) -> this.onClose()
+        ).build();
+
+        row.addChild(resetButton);
+        row.addChild(doneButton);
+    }
+
+    void resetConfig() {
+        for (Field field : this.config.getClass().getFields()) {
+            try {
+                field.setAccessible(true);
+                field.set(config, field.get(configDefault));
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    @Override
+    protected void repositionElements() {
+        layout.arrangeElements();
+        if (list != null) list.updateSize(width, layout);
+    }
+
+    @Override
+    public void removed() {
+        ConfigManager.save();
+        ParticleLoader.saveCustomParticles();
+        if (shouldReloadResources) {
+            shouldReloadResources = false;
+            Minecraft.getInstance().reloadResourcePacks();
+        }
+    }
+
+    @Override
+    public void onClose() {
+        minecraft.gui.setScreen(lastScreen);
+    }
+
+    public ConfigScreen getFreshScreen() {
+        return new ConfigScreen(this.lastScreen, this.config, this.configDefault, this.configGenericType, this.title);
+    }
+
+    public void refresh() {
+        final ConfigScreen freshScreen = getFreshScreen();
+        minecraft.gui.setScreen(freshScreen);
+        freshScreen.list.setScrollAmount(
+                                this.list.scrollAmount()
+
+        );
+    }
+
+    public void addRow(AbstractWidget... widgets) {
+        for (AbstractWidget widget : widgets) {
+            widget.setX((width / 2 - 155) + ((AbstractWidgetAccess)widget).pigcart$getOffset());
+        }
+        list.addRow(widgets);
+    }
+}

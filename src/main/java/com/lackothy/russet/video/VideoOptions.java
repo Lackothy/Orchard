@@ -27,6 +27,13 @@ public final class VideoOptions {
     public static final Choice<Loader> LOADER = new Choice<>("loading.bar", Loader.COMET);
     public static final Choice<Ending> ENDING = new Choice<>("loading.ending", Ending.SUNRISE);
 
+    public static final Toggle PACK = toggle("pack.russetPack");
+
+    public static final Toggle FIX_HIDDEN_WINDOW = toggle("fix.hiddenWindow");
+
+    public static final Toggle EFFECT_PARTICLES = new Toggle("fabulous.effectParticles", false);
+    public static final Toggle WEATHER_PARTICLES = new Toggle("fabulous.weatherParticles", false);
+
     private static boolean loaded;
 
     private VideoOptions() {
@@ -70,6 +77,12 @@ public final class VideoOptions {
             if (value != null) {
                 setting.read(value.strip());
             }
+        }
+    }
+
+    public static synchronized void ensureLoaded() {
+        if (!loaded) {
+            load();
         }
     }
 

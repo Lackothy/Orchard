@@ -15,6 +15,7 @@ On an Apple silicon Mac:
 - Render scale through MetalFX, with the HUD left sharp
 - See-through blocks skipped when they're hidden behind solid ones
 - The Russet Pack: seven resource packs by other creators, which the game downloads from Modrinth on its first start (see below)
+- Fabulous graphics of its own: Fancy, plus a sprite for each potion effect and [Particle Rain](https://github.com/PigCart/particle-rain)'s weather (rain and snow as particles, wind, splashes, fog, desert dust)
 - Video settings based on [Reese's Sodium Options](https://github.com/FlashyReese/reeses-sodium-options), and a custom loading screen
 
 ## Requirements
@@ -40,7 +41,7 @@ Iris keeps OpenGL and Metal switches itself off, saying so in the log.
 
 ## The Russet Pack
 
-These resource packs show in your pack list as one pack named Russet, which stays switched on:
+These resource packs show in your pack list as one pack named Russet:
 
 - [Low Shield](https://modrinth.com/resourcepack/low-shield-pack) and [Low Fire](https://modrinth.com/resourcepack/low-fire-pack) by Oculie
 - [Icons](https://modrinth.com/resourcepack/icons) by Zartrix
@@ -52,9 +53,14 @@ These resource packs show in your pack list as one pack named Russet, which stay
 They're their authors' work, under their own licences. Russet doesn't carry or change their files: it downloads
 each one from its Modrinth page, as a launcher would.
 
+The pack can't be switched off in the pack list. To turn it off, open Options > Video Settings > Russet > Packs and
+turn off Russet Pack: Russet then stops downloading it, and the pack leaves your list. Beside Sodium, whose video
+settings take the place of Russet's, set `pack.russetPack=false` in `config/russet.properties` instead.
+
 ## Network use
 
-Russet goes online only to fetch the Russet Pack. On a start where any of the seven packs is missing from the game
+Russet goes online only to fetch the Russet Pack, and not at all with the pack turned off. On a start where any of
+the seven packs is missing from the game
 folder's `russet-pack` folder, it asks Modrinth's API (api.modrinth.com) for each missing pack's newest version for
 your Minecraft, downloads the files from Modrinth (cdn.modrinth.com) and checks each file's SHA-1. Those requests
 carry your IP address, as any download does, and a User-Agent naming Russet and its version. Nothing else is sent,
@@ -86,7 +92,7 @@ Russet is under the [PolyForm Shield License 1.0.0](LICENSE), so it's source-ava
 than open source. You can use it, change it and share your changes, but you can't provide anything
 that competes with it, even for free, and selling it or a copy of it counts as competing.
 
-`renderer/` and the video settings are modified copies of other projects, whose code keeps its own
+`renderer/`, `rain/` and the video settings are modified copies of other projects, whose code keeps its own
 licences: see [NOTICE](NOTICE). The Russet Pack's packs are their authors' and are never carried in
 the jar.
 
@@ -95,6 +101,15 @@ the jar.
 - [mcopt](https://github.com/noahdunnagan/mcopt) by Noah Dunnagan, the Metal renderer
 - [Metal Shaders](https://github.com/GaelQuinta/minecraft-metal-shaders) by Gael Quintanilla and contributors, the shaders
 - [Reese's Sodium Options](https://github.com/FlashyReese/reeses-sodium-options) by FlashyReese, the video settings
+- [Particle Rain](https://github.com/PigCart/particle-rain) by pigcart, the weather particles
+
+Russet's own code was written with Claude (Anthropic), an AI model, and Metal Shaders' README says Claude wrote most of
+its code too.
+
+## Who's responsible
+
+Russet is made and published by Lackothy, who is responsible for it. For problems or questions, open an issue at
+https://github.com/Lackothy/Orchard/issues.
 
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT. Russet is also not made
 by, affiliated with or endorsed by Lunar Client or by the authors of the projects credited above.

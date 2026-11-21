@@ -4,6 +4,10 @@
   "package": "com.lackothy.russet.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "fabulous.EffectParticleEngineMixin",
+    "fabulous.EffectParticleMixin",
+    "fabulous.GraphicsPresetMixin",
+    "fix.HiddenWindowMixin",
     "GuiGraphicsAccess",
     "GuiMixin",
     "LevelRendererAccess",

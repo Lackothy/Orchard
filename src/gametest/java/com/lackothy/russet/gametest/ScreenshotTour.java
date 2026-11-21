@@ -8,6 +8,8 @@ import com.lackothy.russet.menu.frame.option.OptionRow;
 import com.lackothy.russet.menu.layout.LayoutBounds;
 import com.lackothy.russet.menu.option.MenuChanges;
 import com.lackothy.russet.menu.option.MenuSetting;
+import com.lackothy.russet.pack.RussetPack;
+import com.lackothy.russet.rain.config.ConfigManager;
 import com.lackothy.russet.video.Pages;
 import com.lackothy.russet.video.RendererSettings.Api;
 import com.lackothy.russet.video.Row;
@@ -21,6 +23,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
+import net.minecraft.client.GraphicsPreset;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
@@ -57,11 +60,14 @@ public final class ScreenshotTour implements FabricClientGameTest {
         try (TestSingleplayerContext world = context.worldBuilder().create()) {
             world.getServer().runCommand("time set noon");
             world.getConnection().waitForChunksRender();
+            effectParticles(context, world);
             context.getInput().pressKey(InputConstants.KEY_ESCAPE);
             context.waitTicks(SETTLE);
             shot(context, "pause-over-world");
             videoSettings(context);
+            weather(context, world);
         }
+        packSwitch(context);
 
         for (int[] window : new int[][] {{756, 490}, {640, 480}}) {
             size(context, window[0], window[1], 2);
@@ -69,6 +75,80 @@ public final class ScreenshotTour implements FabricClientGameTest {
         }
         System.clearProperty("russet.sceneHour");
         context.setScreen(TitleScreen::new);
+    }
+
+    private static void effectParticles(ClientGameTestContext context, TestSingleplayerContext world) {
+        GraphicsPreset before = context.computeOnClient(mc -> mc.options.graphicsPreset().get());
+        world.getServer().runCommand("weather clear");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ ~ ~ 0 15");
+        String[] effects = {"regeneration", "speed", "poison", "haste", "night_vision"};
+        for (int i = 0; i < effects.length; i++) {
+            world.getServer().runCommand("execute as @p at @s rotated ~ 0 run summon pig ^" + (i - 2) * 1.2 + " ^ ^4 "
+                + "{NoAI:1b,Silent:1b,Tags:[\"russet_" + effects[i] + "\"]}");
+            world.getServer().runCommand("effect give @e[tag=russet_" + effects[i] + "] minecraft:" + effects[i] + " 600 0");
+        }
+        for (GraphicsPreset preset : new GraphicsPreset[] {GraphicsPreset.FANCY, GraphicsPreset.FABULOUS}) {
+            context.runOnClient(mc -> mc.options.graphicsPreset().set(preset));
+            context.waitTicks(40);
+            shot(context, "effects-" + preset.getSerializedName());
+        }
+        context.runOnClient(mc -> mc.options.graphicsPreset().set(before));
+        world.getServer().runCommand("tp @e[type=pig] 0 -500 0");
+        context.waitTicks(40);
+    }
+
+    private static void weather(ClientGameTestContext context, TestSingleplayerContext world) {
+        context.setScreen(() -> null);
+        GraphicsPreset before = context.computeOnClient(mc -> mc.options.graphicsPreset().get());
+        world.getServer().runCommand("execute as @p at @s rotated ~ 0 run fill ^-4 ^-1 ^3 ^4 ^-1 ^7 water");
+        world.getServer().runCommand("execute as @p at @s rotated ~ 0 run fill ^-4 ^ ^9 ^4 ^3 ^9 stone");
+        world.getServer().runCommand("weather rain");
+        for (GraphicsPreset preset : new GraphicsPreset[] {GraphicsPreset.FANCY, GraphicsPreset.FABULOUS}) {
+            context.runOnClient(mc -> mc.options.graphicsPreset().set(preset));
+            context.waitTicks(120);
+            shot(context, "weather-rain-" + preset.getSerializedName());
+        }
+        world.getServer().runCommand("weather thunder");
+        context.waitTicks(120);
+        shot(context, "weather-thunder-fabulous");
+        biome(world, "snowy_plains");
+        world.getServer().runCommand("weather rain");
+        context.waitTicks(120);
+        shot(context, "weather-snow-fabulous");
+        biome(world, "swamp");
+        world.getServer().runCommand("weather clear");
+        context.waitTicks(240);
+        shot(context, "weather-fog-fabulous");
+        world.getServer().runCommand("weather rain");
+        biome(world, "desert");
+        world.getServer().runCommand("execute as @p at @s run fill ~-24 ~-1 ~-24 ~24 ~-1 ~24 sand");
+        context.waitTicks(160);
+        shot(context, "weather-desert-fabulous");
+        world.getServer().runCommand("weather clear");
+        context.runOnClient(mc -> mc.options.graphicsPreset().set(before));
+    }
+
+    private static void biome(TestSingleplayerContext world, String biome) {
+        for (int y = -8; y < 32; y += 8) {
+            world.getServer().runCommand("execute as @p at @s run fillbiome ~-20 ~" + y + " ~-20 ~20 ~" + (y + 7) + " ~20 minecraft:" + biome);
+        }
+    }
+
+    private static void packSwitch(ClientGameTestContext context) {
+        if (!context.computeOnClient(mc -> mc.getResourcePackRepository().getSelectedIds().contains(RussetPack.ID))) {
+            throw new AssertionError("The Russet Pack should be on before its switch is tried");
+        }
+        for (boolean on : new boolean[] {false, true}) {
+            context.runOnClient(mc -> RussetPack.choose(on));
+            context.waitTicks(5);
+            context.waitFor(mc -> mc.gui.overlay() == null);
+            boolean listed = context.computeOnClient(mc -> mc.getResourcePackRepository().isAvailable(RussetPack.ID)
+                && mc.getResourcePackRepository().getSelectedIds().contains(RussetPack.ID));
+            if (listed != on) {
+                throw new AssertionError("With its switch " + (on ? "on" : "off") + ", the Russet Pack should "
+                    + (on ? "be" : "not be") + " in the pack list");
+            }
+        }
     }
 
     private static void loadingScreens(ClientGameTestContext context) {
@@ -164,6 +244,22 @@ public final class ScreenshotTour implements FabricClientGameTest {
         shot(context, "video-graphics-api");
         key(context, InputConstants.KEY_ESCAPE, SDLKeycode.SDLK_ESCAPE, 0);
         context.waitTicks(SETTLE);
+        key(context, InputConstants.KEY_F, InputConstants.KEYCODE_F, CONTROL);
+        context.getInput().typeChars("heart for regeneration");
+        key(context, InputConstants.KEY_RETURN, InputConstants.KEYCODE_RETURN, 0);
+        key(context, InputConstants.KEY_ESCAPE, SDLKeycode.SDLK_ESCAPE, 0);
+        context.waitTicks(SETTLE);
+        context.getInput().setCursorPos(context.computeOnClient(mc -> mc.getWindow().getScreenWidth() * 0.6),
+            context.computeOnClient(mc -> mc.getWindow().getScreenHeight() * 0.5));
+        context.getInput().scroll(-100);
+        context.waitTicks(SETTLE);
+        context.getInput().setCursorPos(0, 0);
+        context.waitTicks(SETTLE);
+        shot(context, "video-fabulous");
+        context.runOnClient(mc -> mc.gui.setScreen(ConfigManager.screenPlease(mc.gui.screen())));
+        context.waitTicks(SETTLE);
+        shot(context, "rain-settings");
+        openVideo(context, "Quality");
         pending(context);
         tooltip(context);
 

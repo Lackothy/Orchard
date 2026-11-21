@@ -1,0 +1,201 @@
+package com.lackothy.russet.rain;
+
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.levelgen.Heightmap;
+import org.joml.Vector3f;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import com.lackothy.russet.rain.compat.IrisCompat;
+import com.lackothy.russet.rain.compat.WindLinkCompat;
+import com.lackothy.russet.rain.config.ConfigData;
+import com.lackothy.russet.rain.config.ConfigManager;
+import com.lackothy.russet.video.VideoOptions;
+import net.minecraft.client.gui.components.debug.DebugScreenEntries;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+import static com.lackothy.russet.rain.ParticleSpawner.getHeight;
+import static com.lackothy.russet.rain.ParticleSpawner.getSkyParticleDensity;
+import static com.lackothy.russet.rain.config.ConfigManager.getConfig;
+
+public class ParticleRain {
+    public static final String MOD_ID = "particlerain";
+    // Russet: assets are in Russet's namespace. MOD_ID stays Particle Rain's, for its translation keys,
+    // its command, and WindLink, which asks for it by name.
+    public static final String NAMESPACE = "russet";
+    public static final Logger LOGGER = LoggerFactory.getLogger("Russet: Particle Rain");
+    /** Russet: the real Particle Rain is installed, so it draws the weather and this copy does nothing. */
+    public static final boolean STOOD_DOWN = VersionUtil.isModLoaded(MOD_ID);
+
+    /** Russet: whether to draw the weather, read by every hook (Quality > Fabulous > Weather particles). */
+    public static boolean on() {
+        return !STOOD_DOWN && VideoOptions.WEATHER_PARTICLES.on();
+    }
+    private static final TagKey<Biome> IS_OVERWORLD = TagKey.create(Registries.BIOME, VersionUtil.getId("c","is_overworld"));
+
+    public static Set<String> legacyParticleIds = Set.of("streak");
+
+    public static SoundEvent WEATHER_SNOW;
+    public static SoundEvent WEATHER_SNOW_ABOVE;
+    public static SoundEvent WEATHER_SANDSTORM;
+    public static SoundEvent WEATHER_SANDSTORM_ABOVE;
+
+    private static List<String> getDebugLines() {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level == null) return List.of();
+        BlockPos playerBlockPos = BlockPos.containing(Minecraft.getInstance().player.position());
+        final Holder<Biome> biome = level.getBiome(playerBlockPos);
+        Biome.Precipitation precipitation = VersionUtil.getPrecipitationAt(level, biome, playerBlockPos);
+        float speed = (float) Minecraft.getInstance().getCameraEntity().getDeltaMovement().length();
+        int density = getSkyParticleDensity(level, speed);
+        return List.of(
+                String.format("Tracked particles: %d/%d", ParticleSpawner.particleCount, getConfig().perf.particleAmount),
+                "after Weather Ticks Left: " + ParticleSpawner.afterWeatherTicksLeft,
+                "spawn Attempts Until Block FX Idle: " + ParticleSpawner.spawnAttemptsUntilBlockFXIdle,
+                "ticks Until Sky FX Idle: " + ParticleSpawner.ticksUntilSkyFXIdle,
+                "ticks Until Surface FX Idle: " + ParticleSpawner.ticksUntilSurfaceFXIdle,
+                "is Raining: " + level.isRaining(),
+                "Biome Precipitation: " + precipitation,
+                "Wind multiplier: " + yLevelWindMultiplier(playerBlockPos.getY()),
+                "Wind source: " + (WindLinkCompat.isDriving() ? "windlink" : "particlerain"),
+                "cloud height: " + VersionUtil.getCloudHeight(level, playerBlockPos),
+                "surface height: " + ParticleSpawner.getHeight(level, playerBlockPos.getX(), playerBlockPos.getZ()),
+                "default surface height: " + level.getHeight(Heightmap.Types.MOTION_BLOCKING, playerBlockPos.getX(), playerBlockPos.getZ()),
+                "speed: " + speed,
+                "sky particle density: " + density,
+                "Rain level: " + level.getRainLevel(1),
+                "Thunder level: " + level.getThunderLevel(1)
+        );
+    }
+    private static List<String> getBiomeTags() {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level == null) return List.of();
+        BlockPos playerBlockPos = BlockPos.containing(Minecraft.getInstance().player.position());
+        final Holder<Biome> biome = level.getBiome(playerBlockPos);
+        List<String> biomeTags = new ArrayList<>();
+        biomeTags.add(biome.unwrap().map(key -> VersionUtil.getKeyId(key).toString(), b -> "[unregistered "+b+"]") + " has the following tags:");
+        biome.tags().forEach(tag -> biomeTags.add("#"+tag.location()));
+        return biomeTags;
+    }
+
+    public static void onInitializeClient() {
+        WEATHER_SNOW = createSoundEvent("weather.snow");
+        WEATHER_SNOW_ABOVE = createSoundEvent("weather.snow.above");
+        WEATHER_SANDSTORM = createSoundEvent("weather.sandstorm");
+        WEATHER_SANDSTORM_ABOVE = createSoundEvent("weather.sandstorm.above");
+
+        DebugScreenEntries.register(VersionUtil.getId("debug"),
+                (display, level, levelChunk, levelChunk2) ->
+                        display.addToGroup(VersionUtil.getId("debug_group"), getDebugLines())
+        );
+        DebugScreenEntries.register(VersionUtil.getId("biome_tags"),
+                (display, level, levelChunk, levelChunk2) ->
+                        display.addToGroup(VersionUtil.getId("biome_tags_group"), getBiomeTags())
+        );
+
+        IrisCompat.registerRenderPipelines();
+    }
+
+    public static void onTick(Minecraft client) {
+        final Camera camera = client.gameRenderer.mainCamera();
+        if (on() && !client.isPaused() && client.level != null && camera.isInitialized()) {
+            ParticleSpawner.tick(client.level, camera.position());
+            WindManager.tick(client.level);
+        }
+    }
+
+    private static SoundEvent createSoundEvent(String name) {
+        Identifier id = VersionUtil.getId(name);
+        return SoundEvent.createVariableRangeEvent(id);
+    }
+    @SuppressWarnings("unchecked")
+    public static <S> LiteralArgumentBuilder<S> getCommands() {
+        return (LiteralArgumentBuilder<S>) LiteralArgumentBuilder.literal(MOD_ID)
+                .executes(ctx -> {
+                    VersionUtil.schedule(() -> Minecraft.getInstance().gui.setScreen(ConfigManager.screenPlease(null)));
+                    return 0;
+                })
+                .then(LiteralArgumentBuilder.literal("debug")
+                        .executes(ctx -> {
+                            getDebugLines().forEach(VersionUtil::addChatMsg);
+                            return 0;
+                        })
+                )
+                .then(LiteralArgumentBuilder.literal("biometags")
+                        .executes(ctx -> {
+                            getBiomeTags().forEach(VersionUtil::addChatMsg);
+                            return 0;
+                        })
+                );
+    }
+
+    public static void doAdditionalWeatherSounds(ClientLevel level, BlockPos cameraPos, BlockPos rainPos, CallbackInfo ci) {
+        int newY = getHeight(level, rainPos.getX(), rainPos.getZ());
+        rainPos = new BlockPos(rainPos.getX(), newY, rainPos.getZ());
+        if (getConfig().compat.doSpawnHeightLimit) {
+            int cloudHeight = getConfig().compat.spawnHeightLimit == 0 ? VersionUtil.getCloudHeight(level, rainPos) : getConfig().compat.spawnHeightLimit;
+            if (rainPos.getY() > cloudHeight) {
+                ci.cancel();
+                return;
+            }
+        }
+        boolean above = rainPos.getY() > cameraPos.getY() + 1
+                && getHeight(level, cameraPos.getX(), cameraPos.getZ()) > Mth.floor((float)cameraPos.getY());
+        Holder<Biome> biome = level.getBiome(rainPos);
+        Biome.Precipitation precipitation = VersionUtil.getPrecipitationAt(level, biome, rainPos);
+        if (precipitation == Biome.Precipitation.SNOW && getConfig().sound.snowVolume > 0) {
+            SoundEvent sound = above ? ParticleRain.WEATHER_SNOW_ABOVE : ParticleRain.WEATHER_SNOW;
+            level.playLocalSound(rainPos, sound, SoundSource.WEATHER, getConfig().sound.snowVolume, above ? 0.5F : 1.0F, false);
+        } else if (
+                biome.is(IS_OVERWORLD)
+                        && precipitation == Biome.Precipitation.NONE
+                        && biome.value().getBaseTemperature() > 0.25
+                        && getConfig().sound.windVolume > 0
+        ) {
+            SoundEvent sound = above ? ParticleRain.WEATHER_SANDSTORM_ABOVE : ParticleRain.WEATHER_SANDSTORM;
+            level.playLocalSound(rainPos, sound, SoundSource.WEATHER, getConfig().sound.windVolume, above ? 0.5F : 1.0F, false);
+        }
+
+        if (getConfig().sound.rainVolume == 0 || !precipitation.equals(Biome.Precipitation.RAIN)) {
+            ci.cancel();
+        }
+    }
+
+    public static Vector3f getWind(double x, double y, double z) {
+        final ClientLevel level = Minecraft.getInstance().level;
+        if (level == null) return new Vector3f();
+        final ConfigData.WindOptions wind = getConfig().wind;
+        float shift = level.getGameTime() * wind.modulationSpeed;
+        float multiplier = wind.yLevelAdjustment? yLevelWindMultiplier(y) : 0;
+        return new Vector3f(
+                oneWindPlease((float) x, wind.gustFrequency, shift, wind.strength) * multiplier,
+                0,
+                oneWindPlease((float) z, wind.gustFrequency, shift, wind.strength) * multiplier
+        );
+    }
+
+    private static float oneWindPlease(float pos, float frequency, float time, float max) {
+        return -(Mth.sin(pos*frequency + time) * Mth.sin(pos*frequency*0.5F + time*0.5F) * max + max);
+    }
+
+    public static float yLevelWindMultiplier(double y) {
+        int transitionStart = 50;
+        int transitionDistance = 40;
+        return (float) Mth.clamp((y - transitionStart) / transitionDistance, 0, 1);
+    }
+}

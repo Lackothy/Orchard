@@ -1,0 +1,88 @@
+package com.lackothy.russet.rain.mixin.render;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.renderer.texture.SpriteContents;
+import net.minecraft.client.renderer.texture.SpriteLoader;
+import net.minecraft.client.renderer.texture.Stitcher;
+import net.minecraft.resources.Identifier;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import com.lackothy.russet.rain.ParticleRain;
+import com.lackothy.russet.rain.VersionUtil;
+import com.lackothy.russet.rain.TextureUtil;
+import com.lackothy.russet.rain.config.ConfigManager;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.Executor;
+
+@Mixin(SpriteLoader.class)
+public abstract class SpriteLoaderMixin {
+
+    @Shadow @Final private Identifier location;
+
+    @Unique
+    List<SpriteContents> spriteContentsList;
+
+    @Inject(method = "stitch", at = @At("HEAD"))
+    public void stitch(List<SpriteContents> list, int i, Executor executor, CallbackInfoReturnable<SpriteLoader.Preparations> cir) {
+        if (this.location.equals(VersionUtil.getMcId("textures/atlas/particles.png"))) {
+            this.spriteContentsList = list;
+        }
+    }
+
+    @ModifyExpressionValue(
+            method = "stitch",
+            at = @At(value = "NEW", args = "class=net/minecraft/client/renderer/texture/Stitcher")
+    )
+    private Stitcher<SpriteContents> registerWeatherParticleSprites(Stitcher<SpriteContents> stitcher) {
+        if (this.location.equals(VersionUtil.getMcId("textures/atlas/particles.png"))) {
+            NativeImage rainImage = null;
+            NativeImage snowImage = null;
+            try {
+                rainImage = TextureUtil.loadTexture(VersionUtil.getMcId("textures/environment/rain.png"));
+                snowImage = TextureUtil.loadTexture(VersionUtil.getMcId("textures/environment/snow.png"));
+                TextureUtil.boostAlpha(rainImage, "rain");
+                TextureUtil.boostAlpha(snowImage, "snow");
+                if (ConfigManager.getConfig().compat.waterTint) TextureUtil.desaturate(rainImage);
+            } catch (IOException e) {
+                ParticleRain.LOGGER.error("Error loading weather textures: ", e);
+            }
+
+            for (int i = 0; i < 16; i++) {
+                stitcher.registerSprite(TextureUtil.getSpriteFromSheet(rainImage, "rain_", i, 2));
+            }
+            for (int i = 0; i < 16; i++) {
+                stitcher.registerSprite(TextureUtil.getSpriteFromSheet(snowImage, "snow_", i, 2));
+            }
+            stitcher.registerSprite(TextureUtil.mergeSpritesFromSheet(rainImage, "heavy_rain_0", 0, 4, 2));
+            stitcher.registerSprite(TextureUtil.mergeSpritesFromSheet(rainImage, "heavy_rain_1", 4, 4, 2));
+            stitcher.registerSprite(TextureUtil.mergeSpritesFromSheet(rainImage, "heavy_rain_2", 8, 4, 2));
+            stitcher.registerSprite(TextureUtil.mergeSpritesFromSheet(rainImage, "heavy_rain_3", 12, 4, 2));
+            stitcher.registerSprite(TextureUtil.mergeSpritesFromSheet(snowImage, "heavy_snow_0", 0, 4, 2));
+            stitcher.registerSprite(TextureUtil.mergeSpritesFromSheet(snowImage, "heavy_snow_1", 4, 4, 2));
+            stitcher.registerSprite(TextureUtil.mergeSpritesFromSheet(snowImage, "heavy_snow_2", 8, 4, 2));
+            stitcher.registerSprite(TextureUtil.mergeSpritesFromSheet(snowImage, "heavy_snow_3", 12, 4, 2));
+            int rippleResolution = TextureUtil.getRippleResolution(this.spriteContentsList);
+            for (int i = 0; i < 8; i++) {
+                stitcher.registerSprite(TextureUtil.generateRipple(i, rippleResolution));
+            }
+            if (ConfigManager.getConfig().compat.waterTint) {
+                for (int i = 0; i < 4; i++) {
+                    try {
+                        stitcher.registerSprite(VersionUtil.loadSplashSprite(i));
+                    } catch (IOException e) {
+                        ParticleRain.LOGGER.error("Error loading splash particle {}: ", i, e);
+                    }
+                }
+            }
+        }
+        return stitcher;
+    }
+}

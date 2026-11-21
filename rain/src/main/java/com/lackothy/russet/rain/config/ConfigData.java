@@ -1,0 +1,73 @@
+package com.lackothy.russet.rain.config;
+
+import com.lackothy.russet.rain.config.gui.Annotations.*;
+import static com.lackothy.russet.rain.config.ConfigResponders.*;
+
+public class ConfigData {
+    @NoGUI public byte configVersion = 8;
+
+    public void updateTransientVariables() {
+        if (compat != null && compat.weatherIgnoreBlocks != null) {
+            compat.weatherIgnoreBlocks.populateInternalLists();
+        }
+    }
+
+    public PerformanceOptions perf = new PerformanceOptions();
+    public static class PerformanceOptions {
+        @OnChange(ClearParticles.class)
+        public int particleAmount = 1500;
+        public float particleStormDensity = 1.5F;
+        @Format(DistanceInBlocks.class)
+        public int particleDistance = 16;
+        @Format(DistanceInBlocks.class)
+        public int surfaceRange = 100;
+    }
+
+    public SoundOptions sound = new SoundOptions();
+    public static class SoundOptions {
+        @Slider @Format(PercentOrOff.class) public float rainVolume = 0.2F;
+        @Slider @Format(PercentOrOff.class) public float snowVolume = 0.1F;
+        @Slider @Format(PercentOrOff.class) public float windVolume = 0.1F;
+    }
+
+    public WindOptions wind = new WindOptions();
+    public static class WindOptions {
+        public float strength = 0.03F;
+        public float gustFrequency = 0.15F;
+        public float modulationSpeed = 0.1F;
+        public boolean yLevelAdjustment = true;
+    }
+
+    public CompatibilityOptions compat = new CompatibilityOptions();
+    public static class CompatibilityOptions {
+        public boolean renderDefaultRain = false;
+        public boolean renderDefaultSnow = false;
+        public boolean doDefaultSplashing = false;
+        @OnChange(ReloadResources.class)
+        public boolean waterTint = true;
+        @Slider @Format(Percent.class)
+        public float tintMix = 0.6F;
+        public boolean dontTintWithShaders = true;
+        public boolean syncRegistries = true;
+        public boolean crossBiomeBorder = false;
+        public boolean useHeightmapTemp = true;
+        public Whitelist.BlockList weatherIgnoreBlocks = new Whitelist.BlockList(true,
+                "#minecraft:fences", "#minecraft:all_signs", "minecraft:barrier"
+        );
+        public boolean doSpawnHeightLimit = false;
+        @Format(ZeroIsAutomatic.class)
+        public int spawnHeightLimit = 0;
+        @OnChange(ReloadResources.class)
+        public int rippleRes = 16;
+        @OnChange(ReloadResources.class)
+        public boolean rippleUsePackRes = true;
+    }
+
+    @NoGUI
+    public StreakOptions streak = new StreakOptions();
+    public static class StreakOptions {
+        @Slider @Format(Percent.class)
+        public float opacity = 0.9F;
+        public float size = 0.5F;
+    }
+}

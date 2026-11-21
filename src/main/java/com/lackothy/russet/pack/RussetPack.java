@@ -1,7 +1,10 @@
 package com.lackothy.russet.pack;
 
+import com.lackothy.russet.video.VideoOptions;
 import com.mojang.logging.LogUtils;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.FilePackResources;
 import net.minecraft.server.packs.PackLocationInfo;
@@ -48,8 +51,24 @@ public final class RussetPack implements RepositorySource {
     private record Part(PackLocationInfo info, Pack.ResourcesSupplier supplier, Pack.Metadata metadata) {
     }
 
+    public static void choose(boolean on) {
+        if (VideoOptions.PACK.on() == on) {
+            return;
+        }
+        VideoOptions.PACK.set(on);
+        if (on) {
+            PackDownloads.start(FabricLoader.getInstance().getGameDir().resolve(FOLDER));
+        }
+        Minecraft.getInstance().reloadResourcePacks();
+    }
+
     @Override
     public void loadPacks(Consumer<Pack> out) {
+        looked = true;
+        VideoOptions.ensureLoaded();
+        if (!VideoOptions.PACK.on()) {
+            return;
+        }
         List<Part> parts = parts();
         if (parts.isEmpty()) {
             return;

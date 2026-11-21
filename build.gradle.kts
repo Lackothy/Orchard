@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.lackothy"
-version = "0.2.0"
+version = "0.2.1"
 
 val minecraftVersion: String by project
 val loaderVersion: String by project
@@ -23,6 +23,11 @@ dependencies {
 sourceSets.main {
     java.srcDir("renderer/src/main/java")
     resources.srcDir("renderer/src/main/resources")
+}
+
+sourceSets.main {
+    java.srcDir("rain/src/main/java")
+    resources.srcDir("rain/src/main/resources")
 }
 
 val nativeOut = layout.buildDirectory.dir("natives/natives")
@@ -167,6 +172,9 @@ tasks.jar {
     }
     from(files("renderer/LICENSE", "renderer/NOTICE", "renderer/LICENSES/MIT-Photon.txt")) {
         into("licenses/mcopt")
+    }
+    from(files("rain/LICENSE", "rain/NOTICE")) {
+        into("licenses/particle-rain")
     }
 }
 

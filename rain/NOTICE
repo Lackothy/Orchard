@@ -1,0 +1,16 @@
+rain/ is a modified copy of Particle Rain by pigcart (https://github.com/PigCart/particle-rain),
+version 4.0.4 at commit 67e240d2, under the MIT licence in rain/LICENSE.
+
+Russet's changes:
+- Only the code for Minecraft 26.3 on Fabric: Particle Rain's version conditions (Stonecutter
+  comments) were resolved for it, and its Forge, NeoForge and Mod Menu code left out.
+- The package is com.lackothy.russet.rain and the assets are in Russet's namespace, so it can sit
+  beside Particle Rain itself, which then draws the weather while this copy does nothing.
+- Nothing is registered: the streak particle is made directly, so the registry-sync switch went too.
+- It all waits for Russet's Weather particles switch (Quality > Fabulous), and its settings are kept
+  in config/russet-rain.
+- Iris is reached through reflection.
+Each change in the code is marked "Russet:".
+
+The sounds in src/main/resources/assets/russet/sounds come from Particle Rain's repository, which
+names no other source for them, and are under its MIT licence with the rest.

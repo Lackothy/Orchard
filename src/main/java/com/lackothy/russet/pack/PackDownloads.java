@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.lackothy.Russet;
+import com.lackothy.russet.video.VideoOptions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
@@ -53,6 +54,9 @@ public final class PackDownloads {
     }
 
     public static void start(Path folder) {
+        if (!VideoOptions.PACK.on()) {
+            return;
+        }
         Map<String, Entry> have = have(folder);
         if (have.keySet().containsAll(PROJECTS)) {
             return;

@@ -1,9 +1,14 @@
 package com.lackothy.russet.video;
 
 import com.lackothy.Russet;
+import com.lackothy.russet.fabulous.Fabulous;
+import com.lackothy.russet.fix.Fixes;
+import com.lackothy.russet.rain.ParticleRain;
+import com.lackothy.russet.rain.config.ConfigManager;
 import com.lackothy.russet.loading.Ending;
 import com.lackothy.russet.loading.Loader;
 import com.lackothy.russet.loading.Rehearsal;
+import com.lackothy.russet.pack.RussetPack;
 import com.lackothy.russet.video.RendererSettings.Api;
 import com.mojang.blaze3d.systems.RenderSystem;
 import mcopt.metal.Switch;
@@ -51,7 +56,8 @@ public final class Pages {
         List<Group> groups = new ArrayList<>();
         groups.add(new Group("Minecraft", SharedConstants.getCurrentVersion().name(), texture("block/grass_block_side"),
             MINECRAFT, List.of(video(o), quality(o))));
-        groups.add(new Group("Russet", version(Russet.MOD_ID), texture("item/apple"), RUSSET, List.of(loading())));
+        groups.add(new Group("Russet", version(Russet.MOD_ID), texture("item/apple"), RUSSET,
+            List.of(loading(), packs(), fixes())));
         if (RendererSettings.present()) {
             groups.add(new Group("Metal renderer", Switch.VERSION, texture("item/iron_ingot"), METAL,
                 List.of(metal())));
@@ -76,6 +82,11 @@ public final class Pages {
 
     private static Page video(Options o) {
         List<Row> display = new ArrayList<>(List.of(
+            vanilla(o.graphicsPreset(), "Sets most of the Quality page at once. Fast and Fancy are Minecraft's. "
+                + "Fabulous is Russet's: Fancy, plus effect particles drawn for Russet and Particle Rain's "
+                + "weather (Quality > Fabulous). "
+                + "Unlike Minecraft's Fabulous it leaves Improved Transparency off, as it costs the most frames; "
+                + "it's in Quality > Blocks. Changing any of these by hand makes it Custom."),
             vanilla(o.renderDistance(), "How far away the world is drawn. Each step costs more than the last, and a "
                 + "server only sends as far as it allows."),
             vanilla(o.simulationDistance(), "How far away mobs move and crops grow. Lower is easier on the processor."),
@@ -120,16 +131,14 @@ public final class Pages {
             return new Section("Graphics API", rows);
         }
         return new Section("Graphics API", List.of(
-            new Row.Pick<>(Component.literal("Graphics API"), restart("What draws the game. Metal is Apple's own and "
-                + "the fastest here. OpenGL and Vulkan are Minecraft's, for a mod that needs one of them."),
+            new Row.Pick<>(Component.literal("Graphics API"), restart("What draws the game. Metal is Apple's own, and "
+                + "the one Russet's renderer is built for. OpenGL and Vulkan are Minecraft's, for a mod that needs one of them."),
                 RendererSettings.METAL_BACKEND, Arrays.asList(Api.values()), api -> api.label,
                 () -> RendererSettings.api(o), api -> RendererSettings.choose(o, api), Api.METAL, values -> true)));
     }
 
     private static Page quality(Options o) {
         return new Page("Quality", List.of(
-            new Section("Preset", List.of(
-                vanilla(o.graphicsPreset(), null))),
             new Section("Blocks", List.of(
                 vanilla(o.ambientOcclusion(), "Soft shadows where blocks meet."),
                 vanilla(o.biomeBlendRadius(), "How far grass, leaves and water colours blend across biome edges. "
@@ -150,7 +159,34 @@ public final class Pages {
             new Section("Entities and particles", List.of(
                 vanilla(o.entityDistanceScaling(), "How far away mobs and items are drawn, as a share of the usual."),
                 vanilla(o.entityShadows(), "The round shadow under mobs and items."),
-                vanilla(o.particles(), null)))));
+                vanilla(o.particles(), null))),
+            fabulous()));
+    }
+
+    private static Section fabulous() {
+        List<Row> rows = new ArrayList<>(List.of(
+            new Row.Note(Component.literal("Russet's extras for Fabulous graphics.")),
+            fabulous("Effect particles", "A sprite for each effect, such as a heart for Regeneration or a bolt for "
+                + "Haste, in place of Minecraft's coloured swirls, on you and on other players and mobs.",
+                VideoOptions.EFFECT_PARTICLES)));
+        if (ParticleRain.STOOD_DOWN) {
+            rows.add(new Row.Note(Component.literal("Weather particles: Particle Rain is installed, so it draws the weather.")));
+        } else {
+            rows.add(fabulous("Weather particles", "Rain and snow fall as particles that the wind blows, splash, ripple "
+                + "on water and run down walls, with dust, haze and tumbleweeds in deserts, fog after rain and in "
+                + "wet biomes, and sounds for snow and sandstorms. From Particle Rain by pigcart (MIT).",
+                VideoOptions.WEATHER_PARTICLES));
+            rows.add(new Row.Action(Component.literal("Weather settings"),
+                Component.literal("Particle Rain's own settings: how many particles and how far, sounds, wind, "
+                    + "and each particle on its own."), Component.literal("Open"),
+                () -> Minecraft.getInstance().gui.setScreen(ConfigManager.screenPlease(Minecraft.getInstance().gui.screen()))));
+        }
+        return new Section("Fabulous", rows);
+    }
+
+    private static Row fabulous(String name, String description, VideoOptions.Toggle extra) {
+        return new Row.Switch(Component.literal(name), Component.literal(description), extra, extra::on,
+            on -> Fabulous.setByHand(extra, on), extra.initial(), values -> true);
     }
 
     private static Page loading() {
@@ -169,6 +205,26 @@ public final class Pages {
                 new Row.Action(Component.literal("Preview"),
                     Component.literal("Plays the loading screen now, over this menu, as it shows when Minecraft starts."),
                     Component.literal("Play"), () -> Rehearsal.play(Minecraft.getInstance()))))));
+    }
+
+    private static Page packs() {
+        return new Page("Packs", List.of(
+            new Section("Russet Pack", List.of(
+                new Row.Switch(Component.literal("Russet Pack"),
+                    Component.literal("Seven resource packs by other creators, shown in your pack list as one pack named "
+                        + "Russet: Low Shield and Low Fire by Oculie, Icons by Zartrix, (Bee's) Fancy Crops by bebebea_loste, "
+                        + "Even Better Enchants by mythitorium, Fancy Beds by Agente_511 and Fast Better Grass by robotkoer. "
+                        + "Russet downloads them from Modrinth when they're missing. Off, it doesn't, and the pack leaves "
+                        + "your list."),
+                    VideoOptions.PACK, VideoOptions.PACK::on, RussetPack::choose, VideoOptions.PACK.initial(),
+                    values -> true)))));
+    }
+
+    private static Page fixes() {
+        return new Page("Fixes", List.of(
+            new Section("Fixes", Fixes.ALL.stream()
+                .<Row>map(fix -> new Row.Switch(fix.name(), fix.description(), fix.toggle()))
+                .toList())));
     }
 
     private static Section shaders() {

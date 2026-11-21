@@ -1,0 +1,60 @@
+package com.lackothy.russet.rain.config.gui;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import com.lackothy.russet.rain.ParticleLoader;
+import com.lackothy.russet.rain.ParticleRain;
+import com.lackothy.russet.rain.config.ConfigData;
+import com.lackothy.russet.rain.config.ConfigManager;
+import com.lackothy.russet.rain.config.ParticleData;
+
+import java.lang.reflect.Field;
+
+import static com.lackothy.russet.rain.config.gui.WidgetUtil.getButton;
+
+public class ParticleEditScreen extends ConfigScreen {
+
+    public ParticleEditScreen(Screen lastScreen, Object config, Object configDefault, Component title) {
+        super(lastScreen, config, configDefault, title);
+    }
+
+    @Override
+    public ConfigScreen getFreshScreen() {
+        return new ParticleEditScreen(this.lastScreen, this.config, this.configDefault, this.title);
+    }
+
+    @Override
+    public void removed() {
+        ParticleData data = (ParticleData) this.config;
+        if (!ParticleLoader.packParticles.containsKey(data.id)) {
+            ParticleLoader.particles.put(data.id, data);
+        }
+    }
+
+    @Override
+    protected void addContents() {
+        super.addContents();
+        ParticleData data = (ParticleData) this.config;
+        if (data.particleStyle == ParticleData.ParticleStyle.REGISTERED && ParticleRain.legacyParticleIds.contains(data.id)) {
+            ParticleData particleData = (ParticleData) this.config;
+            try {
+                final Field field = ConfigData.class.getField(particleData.id);
+                field.setAccessible(true);
+                final Object bespokeParticleConfig = field.get(ConfigManager.getConfig());
+                final Object defaultConfig = field.get(ConfigManager.getDefaultConfig());
+                AbstractWidget button = getButton(Component.translatable("particlerain.appearance"),
+                        (bttn) -> Minecraft.getInstance().gui.setScreen(new ConfigScreen(
+                                this,
+                                bespokeParticleConfig,
+                                defaultConfig,
+                                Component.translatable("particlerain.appearance")
+                        )));
+                this.list.addRow(button);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+}

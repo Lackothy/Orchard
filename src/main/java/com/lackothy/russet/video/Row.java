@@ -20,6 +20,7 @@ import java.util.function.Supplier;
 public sealed interface Row {
 
     Component RESTART = Component.literal("Takes effect the next time Minecraft starts.").withStyle(ChatFormatting.GRAY);
+    Component GRAPHICS = Component.literal("Graphics");
 
     Component name();
 
@@ -42,7 +43,7 @@ public sealed interface Row {
 
         @Override
         public Component name() {
-            return Control.caption(option);
+            return option == Minecraft.getInstance().options.graphicsPreset() ? GRAPHICS : Control.caption(option);
         }
 
         @Override

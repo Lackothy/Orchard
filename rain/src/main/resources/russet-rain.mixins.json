@@ -1,0 +1,27 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.lackothy.russet.rain.mixin",
+  "plugin": "com.lackothy.russet.rain.mixin.RainMixinPlugin",
+  "compatibilityLevel": "JAVA_25",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "tint.DripParticleMixin",
+    "AbstractWidgetMixin",
+    "WeatherDataMixin",
+    "access.BlockDisplayAccessor",
+    "access.ClientLevelAccessor",
+    "access.DisplayAccessor",
+    "access.NativeImageAccessor",
+    "access.ParticleAccessor",
+    "access.ParticleEngineAccessor",
+    "access.SingleQuadParticleAccessor",
+    "render.ClientLevelMixin",
+    "render.ParticleEngineMixin",
+    "render.SpriteLoaderMixin",
+    "render.WeatherEffectRendererMixin",
+    "tint.WaterDropParticleMixin"
+  ]
+}

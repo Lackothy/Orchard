@@ -1,0 +1,42 @@
+{
+  "weather.snow": {
+    "sounds": [
+      "russet:weather/snow-01",
+	  "russet:weather/snow-02",
+	  "russet:weather/snow-03",
+	  "russet:weather/snow-04",
+	  "russet:weather/snow-05",
+	  "russet:weather/snow-06"
+    ]
+  },
+  "weather.snow.above": {
+    "sounds": [
+      "russet:weather/snow-01",
+	  "russet:weather/snow-02",
+	  "russet:weather/snow-03",
+	  "russet:weather/snow-04",
+	  "russet:weather/snow-05",
+	  "russet:weather/snow-06"
+    ]
+  },
+  "weather.sandstorm": {
+    "sounds": [
+      "russet:weather/sandstorm-01",
+	  "russet:weather/sandstorm-02",
+	  "russet:weather/sandstorm-03",
+	  "russet:weather/sandstorm-04",
+	  "russet:weather/sandstorm-05",
+	  "russet:weather/sandstorm-06"
+    ]
+  },
+  "weather.sandstorm.above": {
+    "sounds": [
+      "russet:weather/sandstormabove-01",
+	  "russet:weather/sandstormabove-02",
+	  "russet:weather/sandstormabove-03",
+	  "russet:weather/sandstormabove-04",
+	  "russet:weather/sandstormabove-05",
+	  "russet:weather/sandstormabove-06"
+    ]
+  }
+}
