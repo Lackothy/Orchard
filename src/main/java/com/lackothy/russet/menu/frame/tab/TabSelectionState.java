@@ -7,6 +7,7 @@ import com.lackothy.russet.menu.frame.AbstractFrame;
 import com.lackothy.russet.menu.frame.option.OptionRow;
 import com.lackothy.russet.menu.frame.ScrollableFrame;
 import com.lackothy.russet.menu.state.Holder;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.resources.Identifier;
@@ -37,8 +38,9 @@ final class TabSelectionState {
             return;
         }
 
+        // Russet: never back onto an external page, or it would open its screen again.
         this.selectedTab = this.tabs.stream()
-                .filter(tab -> getTabKey(tab).equals(this.persistedTabKey.get()))
+                .filter(tab -> getTabKey(tab).equals(this.persistedTabKey.get()) && !tab.getPage().external())
                 .findAny();
         this.selectedTab.ifPresent(restoredTabConsumer);
     }
@@ -57,7 +59,17 @@ final class TabSelectionState {
     }
 
     void activateSelectedTab() {
-        this.selectedTab.ifPresent(value -> this.persistedTabKey.set(getTabKey(value)));
+        this.selectedTab.ifPresent(value -> {
+            // Russet: an external page opens its screen and is never the page the menu reopens on.
+            if (value.getPage().external()) {
+                Screen next = value.getPage().opens().apply(this.screen);
+                if (next != null) {
+                    Minecraft.getInstance().gui.setScreen(next);
+                }
+            } else {
+                this.persistedTabKey.set(getTabKey(value));
+            }
+        });
     }
 
     void warmInactiveFrames(LayoutBounds frameSection) {

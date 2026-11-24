@@ -1,4 +1,8 @@
 {
+  "sodium.option_impact.low": "Low",
+  "sodium.option_impact.medium": "Medium",
+  "sodium.option_impact.high": "High",
+  "sodium.option_impact.varies": "Varies",
   "rso.search_bar_empty": "Search options...",
   "rso.narration.collapsed": "collapsed",
   "rso.narration.expanded": "expanded",

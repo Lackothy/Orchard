@@ -565,6 +565,9 @@ public class VideoOptionsScreen extends Screen {
         for (int offset = 1; offset <= tabs.size(); offset++) {
             int nextIndex = Math.floorMod(currentIndex + direction * offset, tabs.size());
             Tab<?> nextTab = tabs.get(nextIndex);
+            if (nextTab.getPage().external()) {
+                continue;
+            }
 
             this.clearArrowNavigationMemory();
             this.uiState.scrollSelectedTabIntoView().set(true);

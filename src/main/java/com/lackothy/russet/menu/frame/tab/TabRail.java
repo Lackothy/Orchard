@@ -238,7 +238,7 @@ final class TabRail {
     }
 
     private boolean isSelectedTab(Tab<?> tab, Optional<Tab<?>> selectedTab) {
-        return selectedTab.filter(value -> value == tab).isPresent();
+        return selectedTab.filter(value -> value == tab).isPresent() && !tab.getPage().external();
     }
 
     private void addTabChild(List<GuiEventListener> children, BaseWidget widget) {

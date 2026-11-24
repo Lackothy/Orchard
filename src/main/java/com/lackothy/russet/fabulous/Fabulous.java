@@ -9,7 +9,8 @@ import java.util.List;
 
 public final class Fabulous {
 
-    public static final List<VideoOptions.Toggle> EXTRAS = List.of(VideoOptions.EFFECT_PARTICLES, VideoOptions.WEATHER_PARTICLES);
+    public static final List<VideoOptions.Toggle> EXTRAS = List.of(VideoOptions.EFFECT_PARTICLES, VideoOptions.WEATHER_PARTICLES,
+        VideoOptions.CAVE_DUST, VideoOptions.DYNAMIC_LIGHTS);
 
     private Fabulous() {
     }

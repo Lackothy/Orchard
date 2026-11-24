@@ -3,15 +3,15 @@
   "id": "russet",
   "version": "${version}",
   "name": "Russet",
-  "description": "Metal drawing on Apple Silicon from a modified copy of mcopt by Noah Dunnagan, the Russet Pack of resource packs (fetched from Modrinth), and its own video settings and loading screen. NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.",
+  "description": "Quality of life and better graphics for Minecraft: Fabulous graphics with effect particles, weather particles, cave dust and dynamic lights, an attack indicator that shows more than your attack, every video setting in one place with other graphics mods' settings, the Russet Pack of resource packs (fetched from Modrinth) and a loading screen of its own. On Apple silicon Macs it draws the game through Metal, from a modified copy of mcopt by Noah Dunnagan. NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.",
   "authors": ["Lackothy"],
-  "contributors": ["Noah Dunnagan (mcopt, Apache-2.0)", "Gael Quintanilla and contributors (Metal Shaders, Apache-2.0)", "FlashyReese (Reese's Sodium Options, MIT)", "pigcart (Particle Rain, MIT)"],
+  "contributors": ["Noah Dunnagan (mcopt, Apache-2.0)", "Gael Quintanilla and contributors (Metal Shaders, Apache-2.0)", "FlashyReese (Reese's Sodium Options, MIT)", "pigcart (Particle Rain, MIT)", "Minenash (Enhanced Attack Indicator, MIT)"],
   "contact": { "sources": "https://github.com/Lackothy/Orchard", "issues": "https://github.com/Lackothy/Orchard/issues" },
   "license": "PolyForm-Shield-1.0.0",
   "icon": "assets/russet/pack.png",
   "environment": "client",
   "entrypoints": {
-    "preLaunch": ["mcopt.metal.Preload"],
+    "preLaunch": ["com.lackothy.russet.video.sodium.SodiumConfigApi", "mcopt.metal.Preload"],
     "client": ["com.lackothy.RussetClient"]
   },
   "mixins": [

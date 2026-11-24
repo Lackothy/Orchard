@@ -41,6 +41,11 @@ public class TabHeaderWidget extends BaseWidget {
     private final @Nullable Runnable action;
     private boolean selected;
 
+    /** Russet: the group this heads (the screenshot tour finds a group's heading by it). */
+    public MenuGroup group() {
+        return this.modOptions;
+    }
+
     public TabHeaderWidget(LayoutBounds dim, MenuGroup modOptions) {
         this(dim, modOptions, null, false);
     }

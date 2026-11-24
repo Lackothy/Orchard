@@ -4,15 +4,21 @@ import com.lackothy.russet.loading.Ending;
 import com.lackothy.russet.loading.Loader;
 import com.lackothy.russet.loading.Rehearsal;
 import com.lackothy.russet.menu.VideoOptionsScreen;
+import com.lackothy.russet.menu.frame.tab.Tab;
+import com.lackothy.russet.menu.frame.tab.TabFrame;
 import com.lackothy.russet.menu.frame.option.OptionRow;
 import com.lackothy.russet.menu.layout.LayoutBounds;
 import com.lackothy.russet.menu.option.MenuChanges;
 import com.lackothy.russet.menu.option.MenuSetting;
+import com.lackothy.russet.menu.widget.TabHeaderWidget;
 import com.lackothy.russet.pack.RussetPack;
 import com.lackothy.russet.rain.config.ConfigManager;
+import com.lackothy.russet.video.Control;
+import com.lackothy.russet.video.GraphicsMods;
 import com.lackothy.russet.video.Pages;
 import com.lackothy.russet.video.RendererSettings.Api;
 import com.lackothy.russet.video.Row;
+import com.lackothy.russet.video.Values;
 import com.lackothy.russet.video.VideoOptions;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
@@ -24,16 +30,25 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.minecraft.client.GraphicsPreset;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.events.ContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.LightCoordsUtil;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.sdl.SDLKeycode;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 public final class ScreenshotTour implements FabricClientGameTest {
 
@@ -65,9 +80,11 @@ public final class ScreenshotTour implements FabricClientGameTest {
             context.waitTicks(SETTLE);
             shot(context, "pause-over-world");
             videoSettings(context);
+            otherMods(context);
             weather(context, world);
         }
         packSwitch(context);
+        underground(context);
 
         for (int[] window : new int[][] {{756, 490}, {640, 480}}) {
             size(context, window[0], window[1], 2);
@@ -126,6 +143,203 @@ public final class ScreenshotTour implements FabricClientGameTest {
         shot(context, "weather-desert-fabulous");
         world.getServer().runCommand("weather clear");
         context.runOnClient(mc -> mc.options.graphicsPreset().set(before));
+    }
+
+    private static void underground(ClientGameTestContext context) {
+        int distance = context.computeOnClient(mc -> mc.options.renderDistance().get());
+        context.runOnClient(mc -> mc.options.renderDistance().set(4));
+        try (TestSingleplayerContext world = context.worldBuilder()
+            .adjustSettings(settings -> settings.setWorldType(settings.getNormalPresetList().getFirst())).create()) {
+            GraphicsPreset before = context.computeOnClient(mc -> mc.options.graphicsPreset().get());
+            world.getServer().runCommand("execute as @p at @s run fill ~-6 -46 ~-6 ~6 -38 ~6 deepslate hollow");
+            world.getServer().runCommand("execute as @p at @s run fillbiome ~-6 -46 ~-6 ~6 -38 ~6 minecraft:plains");
+            world.getServer().runCommand("execute as @p at @s run tp @s ~ -45 ~ 0 15");
+            world.getServer().runCommand("item replace entity @p weapon.mainhand with torch");
+            world.getServer().runCommand("execute as @p at @s run summon item ~ ~ ~4 "
+                + "{Item:{id:\"minecraft:glowstone_dust\",count:1},PickupDelay:32767}");
+            world.getConnection().waitForChunksRender();
+            for (GraphicsPreset preset : new GraphicsPreset[] {GraphicsPreset.FANCY, GraphicsPreset.FABULOUS}) {
+                context.runOnClient(mc -> {
+                    mc.options.graphicsPreset().set(preset);
+                    mc.options.renderDistance().set(4);
+                });
+                context.waitTicks(60);
+                world.getConnection().waitForChunksRender();
+                shot(context, "underground-" + preset.getSerializedName());
+                int light = context.computeOnClient(mc -> LightCoordsUtil.block(LightCoordsUtil.getLightCoords(mc.level, mc.player.blockPosition())));
+                String particles = context.computeOnClient(mc -> mc.particleEngine.countParticles());
+                boolean fabulous = preset == GraphicsPreset.FABULOUS;
+                if (fabulous ? light < 12 : light != 0) {
+                    throw new AssertionError("Block light at the player's feet with " + preset + " was " + light);
+                }
+                if (fabulous && "0".equals(particles)) {
+                    throw new AssertionError("No cave dust with Fabulous");
+                }
+                boolean fine = context.computeOnClient(mc -> BlockPos.betweenClosedStream(mc.player.blockPosition().offset(-3, 0, -3),
+                    mc.player.blockPosition().offset(3, 0, 3)).anyMatch(pos -> (LightCoordsUtil.getLightCoords(mc.level, pos) & 15) != 0));
+                if (fabulous && !fine) {
+                    throw new AssertionError("Dynamic lights at Smooth lit no block in sixteenths of a level");
+                }
+                if (fabulous) {
+                    context.runOnClient(mc -> VideoOptions.LIGHT_SMOOTHNESS.set(16));
+                    context.waitTicks(3);
+                    boolean whole = context.computeOnClient(mc -> BlockPos.betweenClosedStream(mc.player.blockPosition().offset(-3, 0, -3),
+                        mc.player.blockPosition().offset(3, 0, 3)).allMatch(pos -> (LightCoordsUtil.getLightCoords(mc.level, pos) & 15) == 0));
+                    context.runOnClient(mc -> VideoOptions.LIGHT_SMOOTHNESS.set(VideoOptions.LIGHT_SMOOTHNESS.initial()));
+                    if (!whole) {
+                        throw new AssertionError("Dynamic lights at Smoothness Off lit a block in sixteenths of a level");
+                    }
+                    world.getServer().runCommand("effect give @p night_vision 60 0 true");
+                    context.waitTicks(40);
+                    int seeing = context.computeOnClient(mc -> LightCoordsUtil.block(LightCoordsUtil.getLightCoords(mc.level, mc.player.blockPosition())));
+                    world.getServer().runCommand("effect clear @p night_vision");
+                    context.waitTicks(5);
+                    int after = context.computeOnClient(mc -> LightCoordsUtil.block(LightCoordsUtil.getLightCoords(mc.level, mc.player.blockPosition())));
+                    world.getServer().runCommand("time set noon");
+                    world.getServer().runCommand("execute as @p at @s run tp @s ~ 200 ~");
+                    context.waitTicks(40);
+                    int noon = context.computeOnClient(mc -> LightCoordsUtil.block(LightCoordsUtil.getLightCoords(mc.level, mc.player.blockPosition())));
+                    world.getServer().runCommand("execute as @p at @s run tp @s ~ -45 ~");
+                    context.waitTicks(5);
+                    if (seeing != 0 || after < 12 || noon != 0) {
+                        throw new AssertionError("Block light at the player's feet should be 0 under night vision, 12+ after it and 0 in "
+                            + "the open at noon, not " + seeing + ", " + after + " and " + noon);
+                    }
+                }
+            }
+
+            world.getServer().runCommand("gamemode survival @p");
+            world.getServer().runCommand("item replace entity @p weapon.mainhand with air");
+            world.getServer().runCommand("execute as @p at @s run tp @s ~ ~ ~ 0 0");
+            world.getServer().runCommand("execute as @p at @s run setblock ~ ~1 ~2 deepslate");
+            context.waitTicks(5);
+            context.getInput().holdKey(options -> options.keyAttack);
+            context.waitTicks(60);
+            shot(context, "attack-breaking");
+            int stage = context.computeOnClient(mc -> mc.gameMode.getDestroyStage());
+            context.getInput().releaseKey(options -> options.keyAttack);
+            if (stage <= 0) {
+                throw new AssertionError("Not breaking the deepslate");
+            }
+            world.getServer().runCommand("item replace entity @p weapon.mainhand with bow");
+            world.getServer().runCommand("give @p arrow 8");
+            context.waitTicks(5);
+            context.getInput().holdKey(options -> options.keyUse);
+            context.waitTicks(8);
+            shot(context, "attack-bow");
+            context.getInput().releaseKey(options -> options.keyUse);
+            context.runOnClient(mc -> mc.options.graphicsPreset().set(before));
+        }
+        context.runOnClient(mc -> mc.options.renderDistance().set(distance));
+    }
+
+    private static void otherMods(ClientGameTestContext context) {
+        List<String> mods = context.computeOnClient(mc -> GraphicsMods.groups().stream().map(Pages.Group::name).toList());
+        for (String mod : mods) {
+            openVideo(context, "Quality");
+            double[] at = null;
+            for (int tries = 0; tries < 6 && at == null; tries++) {
+                at = context.computeOnClient(mc -> heading(mc, mod));
+                if (at == null) {
+                    context.getInput().setCursorPos(context.computeOnClient(mc -> mc.getWindow().getScreenWidth() * 0.15),
+                        context.computeOnClient(mc -> mc.getWindow().getScreenHeight() * 0.5));
+                    context.getInput().scroll(-5);
+                    context.waitTicks(SETTLE);
+                }
+            }
+            if (at == null) {
+                throw new AssertionError(mod + "'s heading isn't in the sidebar");
+            }
+            context.getInput().setCursorPos(at[0], at[1]);
+            context.waitTicks(SETTLE);
+            context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
+            context.waitTicks(SETTLE * 2);
+            context.runOnClient(mc -> {
+                if (!(mc.gui.screen() instanceof VideoOptionsScreen screen)) {
+                    throw new AssertionError("Clicking " + mod + " left the menu for " + mc.gui.screen());
+                }
+                Tab<?> tab = screen.rso$getTabFrame().getSelectedTab().orElseThrow();
+                if (!tab.getModOptions().name().equals(mod)) {
+                    throw new AssertionError("Clicking " + mod + " opened " + tab.getModOptions().name() + "'s " + tab.getTitle().getString());
+                }
+            });
+            context.getInput().setCursorPos(0, 0);
+            shot(context, "mods-" + mod.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-"));
+            applyModSwitch(context, mod);
+        }
+        if (mods.isEmpty()) {
+            return;
+        }
+        String first = mods.getFirst();
+        openVideo(context, "Quality");
+        context.runOnClient(mc -> {
+            TabFrame frame = ((VideoOptionsScreen) mc.gui.screen()).rso$getTabFrame();
+            frame.setTab(Optional.of(frame.getTabs().stream()
+                .filter(tab -> tab.getModOptions().name().equals(first) && tab.getPage().external())
+                .findFirst().orElseThrow(() -> new AssertionError(first + " has no page for its own screen"))));
+        });
+        context.waitTicks(SETTLE * 2);
+        if (context.computeOnClient(mc -> mc.gui.screen() instanceof VideoOptionsScreen)) {
+            throw new AssertionError(first + "'s All settings didn't open its own screen");
+        }
+        shot(context, "mods-settings");
+        key(context, InputConstants.KEY_ESCAPE, SDLKeycode.SDLK_ESCAPE, 0);
+        context.waitTicks(SETTLE * 2);
+        if (!context.computeOnClient(mc -> mc.gui.screen() instanceof VideoOptionsScreen)) {
+            throw new AssertionError("Esc from " + first + "'s own screen didn't come back to Russet's menu");
+        }
+        shot(context, "mods-back");
+    }
+
+    private static final Values NOW = new Values() {
+        @Override
+        public <T> T get(Object key, Supplier<T> now) {
+            return now.get();
+        }
+    };
+
+    private static void applyModSwitch(ClientGameTestContext context, String mod) {
+        String name = context.computeOnClient(mc -> GraphicsMods.groups().stream()
+            .filter(group -> group.name().equals(mod))
+            .flatMap(group -> group.pages().stream())
+            .flatMap(page -> page.sections().stream())
+            .flatMap(section -> section.rows().stream())
+            .filter(row -> row instanceof Row.Mod && row.control() instanceof Control.Check && row.enabled(NOW))
+            .map(row -> row.name().getString())
+            .findFirst().orElse(null));
+        if (name == null) {
+            return;
+        }
+        for (int round = 0; round < 2; round++) {
+            boolean before = context.computeOnClient(mc -> (Boolean) setting(mc.gui.screen(), name).getAppliedValue());
+            context.runOnClient(mc -> {
+                VideoOptionsScreen screen = (VideoOptionsScreen) mc.gui.screen();
+                setting(screen, name).modifyValue(!before);
+                screen.changes().applyAllOptions();
+            });
+            openVideo(context, "Quality");
+            boolean after = context.computeOnClient(mc -> (Boolean) setting(mc.gui.screen(), name).getAppliedValue());
+            if (after == before) {
+                throw new AssertionError(mod + "'s " + name + " stayed " + before + " after Apply");
+            }
+        }
+    }
+
+    private static double @Nullable [] heading(Minecraft mc, String group) {
+        Window window = mc.getWindow();
+        double scale = (double) window.getScreenWidth() / window.getGuiScaledWidth();
+        List<GuiEventListener> todo = new ArrayList<>(mc.gui.screen().children());
+        while (!todo.isEmpty()) {
+            GuiEventListener next = todo.removeLast();
+            if (next instanceof TabHeaderWidget header && header.group().name().equals(group)) {
+                int y = header.getY() + header.getHeight() / 2;
+                return y > 0 && y < window.getGuiScaledHeight() - 30 ? new double[] {(header.getX() + 20) * scale, y * scale} : null;
+            }
+            if (next instanceof ContainerEventHandler container) {
+                todo.addAll(container.children());
+            }
+        }
+        return null;
     }
 
     private static void biome(TestSingleplayerContext world, String biome) {
@@ -193,7 +407,11 @@ public final class ScreenshotTour implements FabricClientGameTest {
     }
 
     private static void videoSettings(ClientGameTestContext context) {
-        List<String> pages = context.computeOnClient(mc -> Pages.all().stream().map(Pages.Page::name).toList());
+        List<String> pages = context.computeOnClient(mc -> {
+            List<String> mods = GraphicsMods.groups().stream().map(Pages.Group::name).toList();
+            return Pages.groups().stream().filter(group -> !mods.contains(group.name()))
+                .flatMap(group -> group.pages().stream()).map(Pages.Page::name).toList();
+        });
         List<String> keys = context.computeOnClient(mc -> Pages.all().stream()
             .flatMap(page -> page.sections().stream())
             .flatMap(section -> section.rows().stream())
@@ -244,6 +462,15 @@ public final class ScreenshotTour implements FabricClientGameTest {
         shot(context, "video-graphics-api");
         key(context, InputConstants.KEY_ESCAPE, SDLKeycode.SDLK_ESCAPE, 0);
         context.waitTicks(SETTLE);
+        context.getInput().setCursorPos(context.computeOnClient(mc -> mc.getWindow().getScreenWidth() * 0.6),
+            context.computeOnClient(mc -> mc.getWindow().getScreenHeight() * 0.5));
+        context.getInput().scroll(-100);
+        context.waitTicks(SETTLE);
+        context.getInput().scroll(3);
+        context.waitTicks(SETTLE);
+        context.getInput().setCursorPos(0, 0);
+        context.waitTicks(SETTLE);
+        shot(context, "video-attack-indicator");
         key(context, InputConstants.KEY_F, InputConstants.KEYCODE_F, CONTROL);
         context.getInput().typeChars("heart for regeneration");
         key(context, InputConstants.KEY_RETURN, InputConstants.KEYCODE_RETURN, 0);
@@ -252,6 +479,20 @@ public final class ScreenshotTour implements FabricClientGameTest {
         context.getInput().setCursorPos(context.computeOnClient(mc -> mc.getWindow().getScreenWidth() * 0.6),
             context.computeOnClient(mc -> mc.getWindow().getScreenHeight() * 0.5));
         context.getInput().scroll(-100);
+        context.waitTicks(SETTLE);
+        context.getInput().setCursorPos(0, 0);
+        context.waitTicks(SETTLE);
+        shot(context, "video-dynamic-lights-kinds");
+        context.getInput().setCursorPos(context.computeOnClient(mc -> mc.getWindow().getScreenWidth() * 0.6),
+            context.computeOnClient(mc -> mc.getWindow().getScreenHeight() * 0.5));
+        context.getInput().scroll(18);
+        context.waitTicks(SETTLE);
+        context.getInput().setCursorPos(0, 0);
+        context.waitTicks(SETTLE);
+        shot(context, "video-dynamic-lights");
+        context.getInput().setCursorPos(context.computeOnClient(mc -> mc.getWindow().getScreenWidth() * 0.6),
+            context.computeOnClient(mc -> mc.getWindow().getScreenHeight() * 0.5));
+        context.getInput().scroll(21);
         context.waitTicks(SETTLE);
         context.getInput().setCursorPos(0, 0);
         context.waitTicks(SETTLE);

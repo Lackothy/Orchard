@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -111,6 +112,42 @@ public sealed interface Row {
             return new Control.Cycle<>(() -> values, get, set, value -> Component.literal(label.apply(value)), fallback);
         }
 
+        @Override
+        public boolean enabled(Values values) {
+            return when.test(values);
+        }
+    }
+
+    record Slide(Component name, Component description, VideoOptions.Amount amount, IntFunction<String> label,
+                 Predicate<Values> when) implements Row {
+        @Override
+        public Object key() {
+            return amount;
+        }
+
+        @Override
+        public Control control() {
+            int[] stops = amount.stops();
+            return new Control.Slider<Integer>(stops.length - 1, amount::get, amount::set, value -> position(stops, value),
+                step -> stops[step], value -> Component.literal(label.apply(value)), amount.initial());
+        }
+
+        @Override
+        public boolean enabled(Values values) {
+            return when.test(values);
+        }
+
+        private static int position(int[] stops, int value) {
+            for (int i = 0; i < stops.length; i++) {
+                if (stops[i] == value) {
+                    return i;
+                }
+            }
+            return 0;
+        }
+    }
+
+    record Mod(Component name, Component description, Object key, Control control, Predicate<Values> when) implements Row {
         @Override
         public boolean enabled(Values values) {
             return when.test(values);

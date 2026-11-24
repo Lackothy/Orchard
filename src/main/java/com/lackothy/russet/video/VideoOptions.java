@@ -1,6 +1,8 @@
 package com.lackothy.russet.video;
 
 import com.lackothy.Russet;
+import com.lackothy.russet.fabulous.DynamicLights;
+import com.lackothy.russet.hud.AttackIndicator;
 import com.lackothy.russet.loading.Ending;
 import com.lackothy.russet.loading.Loader;
 import net.fabricmc.loader.api.FabricLoader;
@@ -11,11 +13,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
+import java.util.stream.IntStream;
 
 public final class VideoOptions {
 
@@ -33,6 +37,34 @@ public final class VideoOptions {
 
     public static final Toggle EFFECT_PARTICLES = new Toggle("fabulous.effectParticles", false);
     public static final Toggle WEATHER_PARTICLES = new Toggle("fabulous.weatherParticles", false);
+    public static final Toggle CAVE_DUST = new Toggle("fabulous.caveDust", false);
+    public static final Toggle DYNAMIC_LIGHTS = new Toggle("fabulous.dynamicLights", false);
+
+    public static final Amount LIGHT_SMOOTHNESS = new Amount("dynamicLights.smoothness", 4, 16, 8, 4, 2, 1);
+    public static final Amount LIGHT_UPDATE_TICKS = new Amount("dynamicLights.updateTicks", 1, 20, 10, 5, 4, 2, 1);
+    public static final Amount LIGHT_MOST = new Amount("dynamicLights.most", 32, IntStream.rangeClosed(1, 64).toArray());
+    public static final Amount LIGHT_REDRAWS = new Amount("dynamicLights.redrawsPerTick", 0,
+        IntStream.concat(IntStream.rangeClosed(1, 16).map(i -> i * 8), IntStream.of(0)).toArray());
+    public static final Choice<DynamicLights.Reach> LIGHT_REACH = new Choice<>("dynamicLights.reach", DynamicLights.Reach.SHORT);
+    public static final Amount LIGHT_DISTANCE = new Amount("dynamicLights.distance", 64, IntStream.rangeClosed(1, 8).map(i -> i * 16).toArray());
+    public static final Toggle LIGHT_YOURS = toggle("dynamicLights.yours");
+    public static final Toggle LIGHT_HELD = toggle("dynamicLights.held");
+    public static final Toggle LIGHT_ITEMS = toggle("dynamicLights.items");
+    public static final Toggle LIGHT_BURNING = toggle("dynamicLights.burning");
+    public static final Toggle LIGHT_MOBS = toggle("dynamicLights.glowingMobs");
+    public static final Toggle LIGHT_PROJECTILES = toggle("dynamicLights.projectiles");
+    public static final Toggle LIGHT_EXPLOSIVES = toggle("dynamicLights.explosives");
+    public static final Toggle LIGHT_OUT_UNDERWATER = toggle("dynamicLights.outUnderwater");
+
+    public static final Choice<AttackIndicator.Priority> ATTACK_PRIORITY = new Choice<>("attack.weaponPriority", AttackIndicator.Priority.MIDDLE);
+    public static final Toggle ATTACK_HIDE_DIGGERS = toggle("attack.hidePickaxesAndShovels");
+    public static final Toggle ATTACK_HIDE_AXES = new Toggle("attack.hideAxes", false);
+    public static final Toggle ATTACK_BLOCK_BREAKING = toggle("attack.blockBreaking");
+    public static final Toggle ATTACK_RANGED_DRAW = toggle("attack.rangedDraw");
+    public static final Toggle ATTACK_ITEM_COOLDOWNS = toggle("attack.itemCooldowns");
+    public static final Toggle ATTACK_EATING = toggle("attack.eatingAndDrinking");
+    public static final Toggle ATTACK_SLEEP = toggle("attack.sleep");
+    public static final Toggle ATTACK_CONTAINERS = toggle("attack.containerFullness");
 
     private static boolean loaded;
 
@@ -151,6 +183,54 @@ public final class VideoOptions {
         @Override
         String write() {
             return Boolean.toString(on);
+        }
+    }
+
+    public static final class Amount extends Setting {
+        private final int initial;
+        private final int[] stops;
+        private volatile int value;
+
+        Amount(String key, int initial, int... stops) {
+            super(key);
+            this.initial = initial;
+            this.stops = stops;
+            this.value = initial;
+        }
+
+        public int get() {
+            return value;
+        }
+
+        public int initial() {
+            return initial;
+        }
+
+        public int[] stops() {
+            return stops.clone();
+        }
+
+        public void set(int value) {
+            if (this.value != value) {
+                this.value = value;
+                save();
+            }
+        }
+
+        @Override
+        void read(String text) {
+            try {
+                int read = Integer.parseInt(text);
+                if (Arrays.stream(stops).anyMatch(stop -> stop == read)) {
+                    value = read;
+                }
+            } catch (NumberFormatException e) {
+            }
+        }
+
+        @Override
+        String write() {
+            return Integer.toString(value);
         }
     }
 

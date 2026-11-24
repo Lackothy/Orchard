@@ -2,6 +2,7 @@ package com.lackothy.russet.menu.option;
 
 import com.lackothy.russet.menu.config.MenuConfig;
 import com.lackothy.russet.video.Control;
+import com.lackothy.russet.video.GraphicsMods;
 import com.lackothy.russet.video.Pages;
 import com.lackothy.russet.video.Row;
 import com.lackothy.russet.video.Values;
@@ -47,7 +48,7 @@ public final class MenuChanges implements Values {
                     }
                     sections.add(new MenuSection(Component.literal(section.title()), options));
                 }
-                pages.add(new MenuPage(Component.literal(page.name()), sections));
+                pages.add(new MenuPage(Component.literal(page.name()), sections, page.opens()));
             }
             if (configId.equals(MENU_GROUP)) {
                 pages.add(this.menuPage(configId));
@@ -80,6 +81,7 @@ public final class MenuChanges implements Values {
             setting.apply();
             own |= ownSettings.contains(setting);
         }
+        GraphicsMods.saveChanged();
         resetAllOptionsFromBindings();
         Minecraft.getInstance().options.save();
         if (own) {

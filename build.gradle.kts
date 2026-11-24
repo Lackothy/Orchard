@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.lackothy"
-version = "0.2.1"
+version = "0.3.0"
 
 val minecraftVersion: String by project
 val loaderVersion: String by project
@@ -28,6 +28,21 @@ sourceSets.main {
 sourceSets.main {
     java.srcDir("rain/src/main/java")
     resources.srcDir("rain/src/main/resources")
+}
+
+val sodiumApi: SourceSet = sourceSets.create("sodiumApi") {
+    java.srcDir("sodium-config-api/src/main/java")
+    compileClasspath += sourceSets.main.get().compileClasspath
+}
+
+sourceSets.main {
+    compileClasspath += sodiumApi.output
+}
+
+val sodiumApiJar by tasks.registering(Jar::class) {
+    archiveFileName.set("sodium-config-api.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("sodium-config-api"))
+    from(sodiumApi.output)
 }
 
 val nativeOut = layout.buildDirectory.dir("natives/natives")
@@ -161,6 +176,9 @@ fun ProcessResources.stampModJson() {
 tasks.processResources {
     dependsOn(compileNative)
     from(layout.buildDirectory.dir("natives"))
+    from(sodiumApiJar) {
+        into("META-INF/russet")
+    }
     stampModJson()
 }
 

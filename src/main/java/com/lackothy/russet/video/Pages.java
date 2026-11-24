@@ -1,8 +1,11 @@
 package com.lackothy.russet.video;
 
 import com.lackothy.Russet;
+import com.lackothy.russet.fabulous.CaveDust;
+import com.lackothy.russet.fabulous.DynamicLights;
 import com.lackothy.russet.fabulous.Fabulous;
 import com.lackothy.russet.fix.Fixes;
+import com.lackothy.russet.hud.AttackIndicator;
 import com.lackothy.russet.rain.ParticleRain;
 import com.lackothy.russet.rain.config.ConfigManager;
 import com.lackothy.russet.loading.Ending;
@@ -16,17 +19,22 @@ import mcopt.metal.shade.Shade;
 import mcopt.metal.shade.ShadeSettingsScreen;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
+import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 public final class Pages {
 
@@ -36,7 +44,10 @@ public final class Pages {
     public record Group(String name, String version, Identifier icon, Theme theme, List<Page> pages) {
     }
 
-    public record Page(String name, List<Section> sections) {
+    public record Page(String name, List<Section> sections, @Nullable Function<Screen, @Nullable Screen> opens) {
+        public Page(String name, List<Section> sections) {
+            this(name, sections, null);
+        }
     }
 
     public record Section(String title, List<Row> rows) {
@@ -62,6 +73,7 @@ public final class Pages {
             groups.add(new Group("Metal renderer", Switch.VERSION, texture("item/iron_ingot"), METAL,
                 List.of(metal())));
         }
+        groups.addAll(GraphicsMods.groups());
         return groups;
     }
 
@@ -73,7 +85,7 @@ public final class Pages {
         return groups().stream().flatMap(group -> group.pages().stream()).toList();
     }
 
-    private static String version(String mod) {
+    static String version(String mod) {
         String version = FabricLoader.getInstance().getModContainer(mod)
             .map(container -> container.getMetadata().getVersion().getFriendlyString()).orElse("");
         int plus = version.indexOf('+');
@@ -83,8 +95,8 @@ public final class Pages {
     private static Page video(Options o) {
         List<Row> display = new ArrayList<>(List.of(
             vanilla(o.graphicsPreset(), "Sets most of the Quality page at once. Fast and Fancy are Minecraft's. "
-                + "Fabulous is Russet's: Fancy, plus effect particles drawn for Russet and Particle Rain's "
-                + "weather (Quality > Fabulous). "
+                + "Fabulous is Russet's: Fancy, plus effect particles drawn for Russet, Particle Rain's "
+                + "weather, cave dust and dynamic lights (Quality > Fabulous). "
                 + "Unlike Minecraft's Fabulous it leaves Improved Transparency off, as it costs the most frames; "
                 + "it's in Quality > Blocks. Changing any of these by hand makes it Custom."),
             vanilla(o.renderDistance(), "How far away the world is drawn. Each step costs more than the last, and a "
@@ -105,10 +117,12 @@ public final class Pages {
                 vanilla(o.inactivityFpsLimit(), null))),
             new Section("Interface", List.of(
                 vanilla(o.bobView(), "Sways the view as you walk."),
-                vanilla(o.attackIndicator(), null),
+                vanilla(o.attackIndicator(), "Where your attack's cooldown shows, by the crosshair or the hotbar. "
+                    + "It also shows breaking, drawing a bow, eating and more (Attack indicator, below)."),
                 vanilla(o.showAutosaveIndicator(), null),
                 vanilla(o.menuBackgroundBlurriness(), "How much the world blurs behind menus."),
                 vanilla(o.vignette(), "Darkens the corners of the screen."))),
+            attackIndicator(o),
             graphicsApi(o)));
     }
 
@@ -160,7 +174,39 @@ public final class Pages {
                 vanilla(o.entityDistanceScaling(), "How far away mobs and items are drawn, as a share of the usual."),
                 vanilla(o.entityShadows(), "The round shadow under mobs and items."),
                 vanilla(o.particles(), null))),
-            fabulous()));
+            fabulous(),
+            dynamicLights()));
+    }
+
+    private static Section attackIndicator(Options o) {
+        if (AttackIndicator.STOOD_DOWN) {
+            return new Section("Attack indicator", List.of(
+                new Row.Note(Component.literal("Enhanced Attack Indicator is installed, so it draws the attack indicator."))));
+        }
+        OptionInstance<AttackIndicatorStatus> shown = o.attackIndicator();
+        Predicate<Values> when = values -> values.get(shown, shown::get) != AttackIndicatorStatus.OFF;
+        return new Section("Attack indicator", List.of(
+            new Row.Note(Component.literal("It shows more than your attack, as Enhanced Attack Indicator by Minenash (MIT) does.")),
+            Row.Pick.of(Component.literal("Attack cooldown"),
+                Component.literal("When more than one thing is going on, which the indicator shows: your attack's cooldown "
+                    + "first, in the middle (after sleeping, breaking, drawing, eating and how full a box is, before item "
+                    + "cooldowns), or last."),
+                VideoOptions.ATTACK_PRIORITY, Arrays.asList(AttackIndicator.Priority.values()), p -> p.label, when),
+            row("No cooldown for pickaxes and shovels", "Leaves their attack cooldown out, so the indicator shows "
+                + "what they're doing instead.", VideoOptions.ATTACK_HIDE_DIGGERS, when),
+            row("No cooldown for axes", "The same for axes.", VideoOptions.ATTACK_HIDE_AXES, when),
+            row("Breaking blocks", "How far the block you're breaking is broken.", VideoOptions.ATTACK_BLOCK_BREAKING, when),
+            row("Bows, crossbows and tridents", "How far drawn, and the full sign while a crossbow is loaded.",
+                VideoOptions.ATTACK_RANGED_DRAW, when),
+            row("Item cooldowns", "How long until an ender pearl, chorus fruit or shield can be used again.",
+                VideoOptions.ATTACK_ITEM_COOLDOWNS, when),
+            row("Eating and drinking", "How far through the food or potion you are.", VideoOptions.ATTACK_EATING, when),
+            row("Sleeping", "How long until you're asleep.", VideoOptions.ATTACK_SLEEP, when),
+            row("Shulker boxes and bundles", "How full the one in your hand is.", VideoOptions.ATTACK_CONTAINERS, when)));
+    }
+
+    private static Row row(String name, String description, VideoOptions.Toggle toggle, Predicate<Values> when) {
+        return new Row.Switch(Component.literal(name), Component.literal(description), toggle, when);
     }
 
     private static Section fabulous() {
@@ -181,7 +227,74 @@ public final class Pages {
                     + "and each particle on its own."), Component.literal("Open"),
                 () -> Minecraft.getInstance().gui.setScreen(ConfigManager.screenPlease(Minecraft.getInstance().gui.screen()))));
         }
+        if (CaveDust.STOOD_DOWN) {
+            rows.add(new Row.Note(Component.literal("Cave dust: Cave Dust is installed, so it draws the dust.")));
+        } else {
+            rows.add(fabulous("Cave dust", "Specks of dust drift in the air underground, more the deeper you are, as in Cave "
+                + "Dust by LizIsTired: below sea level, out of the sky's sight and outside lush caves.", VideoOptions.CAVE_DUST));
+        }
+        if (DynamicLights.STOOD_DOWN) {
+            rows.add(new Row.Note(Component.literal("Dynamic lights: LambDynamicLights is installed, so it lights things.")));
+        } else {
+            rows.add(fabulous("Dynamic lights", "A torch or other light glows while you or anyone else holds it, and so do "
+                + "dropped ones, items in frames, anything on fire, blazes, fireballs, glow squids and creepers about to "
+                + "blow, as in LambDynamicLights. The chunks around a light are drawn again as it moves, which costs frames. "
+                + "They go out by themselves under full bright or night vision, and wherever they wouldn't show, as "
+                + "outdoors in daylight. With Metal's shaders on, theirs light things instead. Its settings are under "
+                + "Dynamic lights below.",
+                VideoOptions.DYNAMIC_LIGHTS));
+        }
         return new Section("Fabulous", rows);
+    }
+
+    private static Section dynamicLights() {
+        if (DynamicLights.STOOD_DOWN) {
+            return new Section("Dynamic lights", List.of(
+                new Row.Note(Component.literal("LambDynamicLights is installed, so its own settings apply."))));
+        }
+        Predicate<Values> when = values -> values.on(VideoOptions.DYNAMIC_LIGHTS);
+        return new Section("Dynamic lights", List.of(
+            new Row.Note(Component.literal("If dynamic lights lag, lower the sliders.")),
+            new Row.Slide(Component.literal("Smoothness"),
+                Component.literal("How far a light moves before the blocks around it are lit again. Off moves it a block "
+                    + "at a time, in whole light levels; finer steps fade between levels too, and draw the world again "
+                    + "more often. Mobs, items and your hand are lit smoothly whatever this is."),
+                VideoOptions.LIGHT_SMOOTHNESS, sixteenths -> sixteenths == 16 ? "Off" : "1/" + 16 / sixteenths + " block", when),
+            new Row.Slide(Component.literal("Updates"),
+                Component.literal("How often the light on blocks may move. Fewer costs fewer frames, and the light "
+                    + "trails behind more."),
+                VideoOptions.LIGHT_UPDATE_TICKS, ticks -> switch (ticks) {
+                    case 20 -> "Once a second";
+                    case 10 -> "Twice a second";
+                    default -> 20 / ticks + " a second";
+                }, when),
+            new Row.Slide(Component.literal("Most lights"),
+                Component.literal("How many of the lights nearest you light things. Fewer costs fewer frames in crowds, "
+                    + "mob farms and fires."),
+                VideoOptions.LIGHT_MOST, String::valueOf, when),
+            new Row.Slide(Component.literal("Redraws a tick"),
+                Component.literal("How many pieces of the world, 16 blocks each way, may be drawn again each tick as lights "
+                    + "move. A limit keeps lag spikes down on a slow computer: the lights furthest from you wait their turn, "
+                    + "yours goes first. With Chunk Builder (Quality > Blocks) at Player Affected they're drawn in the same "
+                    + "frame, smoothest and slowest."),
+                VideoOptions.LIGHT_REDRAWS, sections -> sections == 0 ? "No limit" : String.valueOf(sections), when),
+            Row.Pick.of(Component.literal("Reach"),
+                Component.literal("How far a light reaches. At Short a held torch lights 7 blocks around, half as far as a "
+                    + "placed one; at Long as far. Further draws more of the world again as lights move."),
+                VideoOptions.LIGHT_REACH, Arrays.asList(DynamicLights.Reach.values()), r -> r.label, when),
+            new Row.Slide(Component.literal("Distance"),
+                Component.literal("How far from you lights are found."),
+                VideoOptions.LIGHT_DISTANCE, blocks -> blocks + " blocks", when),
+            row("Your own light", "What you hold, and you on fire, light around you.", VideoOptions.LIGHT_YOURS, when),
+            row("Held lights", "A torch or other light in another player's or a mob's hand.", VideoOptions.LIGHT_HELD, when),
+            row("Dropped items and item frames", "Lights on the ground, falling or in a frame.", VideoOptions.LIGHT_ITEMS, when),
+            row("Burning things", "Players, mobs and arrows on fire.", VideoOptions.LIGHT_BURNING, when),
+            row("Glowing mobs", "Blazes, magma cubes, allays and glow squids.", VideoOptions.LIGHT_MOBS, when),
+            row("Fireballs and fireworks", "Fireballs, spectral arrows, fireworks and experience orbs.",
+                VideoOptions.LIGHT_PROJECTILES, when),
+            row("Creepers and TNT", "A creeper about to blow, brighter as it swells, and lit TNT.", VideoOptions.LIGHT_EXPLOSIVES, when),
+            row("Out underwater", "Torches, campfires and other flames give no light underwater.",
+                VideoOptions.LIGHT_OUT_UNDERWATER, when)));
     }
 
     private static Row fabulous(String name, String description, VideoOptions.Toggle extra) {

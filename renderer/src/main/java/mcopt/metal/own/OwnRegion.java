@@ -1,5 +1,7 @@
+// Modified for Russet: block light raised by Russet's dynamic lights (lightCoords, lightAt).
 package mcopt.metal.own;
 
+import com.lackothy.russet.fabulous.DynamicLights;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.chunk.SectionCopy;
@@ -261,7 +263,8 @@ public final class OwnRegion implements BlockAndTintGetter {
 			p = LightCoordsUtil.BrightnessGetter.DEFAULT.packedBrightness(this, pos);
 		}
 		int blockLight = LightCoordsUtil.block(p), emission = state.getLightEmission();
-		return blockLight < emission ? LightCoordsUtil.withBlock(p, emission) : p;
+		// Russet: and to its dynamic lights' level, as vanilla's own lookup is (DynamicLightMixin).
+		return DynamicLights.raise(blockLight < emission ? LightCoordsUtil.withBlock(p, emission) : p, pos);
 	}
 
 	public float shadeBrightness(BlockState state, BlockPos pos) {
@@ -336,7 +339,8 @@ public final class OwnRegion implements BlockAndTintGetter {
 			p = LightCoordsUtil.BrightnessGetter.DEFAULT.packedBrightness(this, this.scratch.set(px, py, pz));
 		}
 		int blockLight = LightCoordsUtil.block(p), emission = state.getLightEmission();
-		return blockLight < emission ? LightCoordsUtil.withBlock(p, emission) : p;
+		// Russet: and to its dynamic lights' level, as vanilla's own lookup is (DynamicLightMixin).
+		return DynamicLights.raise(blockLight < emission ? LightCoordsUtil.withBlock(p, emission) : p, px, py, pz);
 	}
 
 	float shadeAt(BlockState state, int px, int py, int pz) {

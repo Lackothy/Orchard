@@ -15,5 +15,17 @@ rain/NOTICE and rain/LICENSE.
 src/main/java/com/lackothy/russet/menu is a modified copy of Reese's Sodium Options by FlashyReese,
 and stays under its MIT licence. See src/main/resources/licenses/reeses-sodium-options.txt.
 
+src/main/java/com/lackothy/russet/hud/AttackIndicator.java and
+src/main/java/com/lackothy/russet/mixin/hud/AttackIndicatorMixin.java are a modified copy of Enhanced
+Attack Indicator by Minenash, and stay under its MIT licence. See
+src/main/resources/licenses/enhanced-attack-indicator.txt.
+
+Russet's cave dust and dynamic lights do what Cave Dust (by LizIsTired, MPL-2.0) and LambDynamicLights
+(by LambdAurora) do, in Russet's own code: no code of either is copied.
+
+sodium-config-api/ declares, in Russet's own code, the class and method names of Sodium's config
+API (Sodium is by CaffeineMC), so that mods which build pages for Sodium's settings show them in
+Russet's. It holds no code taken from Sodium, and is only loaded when Sodium isn't installed.
+
 Minecraft is a trademark of Mojang AB. NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR
 ASSOCIATED WITH MOJANG OR MICROSOFT. Russet is made and published by Lackothy, who is responsible for it.
