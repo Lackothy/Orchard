@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.lackothy"
-version = "0.3.0"
+version = "0.4.0"
 
 val minecraftVersion: String by project
 val loaderVersion: String by project
