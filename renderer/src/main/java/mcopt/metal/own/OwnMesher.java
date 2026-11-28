@@ -1,3 +1,4 @@
+// Modified for Russet: smart leaves (OwnLeaves) choose where a leaf block's quads go; -Dmcopt.own.mesh.time.
 package mcopt.metal.own;
 
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -77,6 +78,22 @@ public final class OwnMesher {
 	private OwnMesher() {
 	}
 
+	static final boolean TIME = Boolean.getBoolean("mcopt.own.mesh.time");
+	private static final java.lang.management.ThreadMXBean THREADS = java.lang.management.ManagementFactory.getThreadMXBean();
+	private static final java.util.concurrent.atomic.LongAdder TIME_NANOS = new java.util.concurrent.atomic.LongAdder(), TIME_COUNT = new java.util.concurrent.atomic.LongAdder();
+	private static volatile long timeLog;
+
+	private static void time(long cpu) {
+		TIME_NANOS.add(cpu);
+		TIME_COUNT.increment();
+		long now = System.nanoTime();
+		if (now > timeLog) {
+			timeLog = now + 5_000_000_000L;
+			long n = TIME_COUNT.sumThenReset(), ns = TIME_NANOS.sumThenReset();
+			System.out.printf("mcopt-own mesh time: %d sections, %.0f ms CPU, %.0f us each%n", n, ns / 1e6, n == 0 ? 0.0 : ns / 1e3 / n);
+		}
+	}
+
 	public static SectionCompiler.@Nullable Results compile(boolean ambientOcclusion, boolean cutoutLeaves, BlockStateModelSet blockModelSet,
 		FluidStateModelSet fluidModelSet, BlockColors blockColors, SectionPos sectionPos, RenderSectionRegion region, VertexSorting vertexSorting,
 		SectionBufferBuilderPack builders) {
@@ -85,9 +102,11 @@ public final class OwnMesher {
 		OwnQuads quads = OwnQuads.get();
 		Map<ChunkSectionLayer, BufferBuilder> startedLayers = new EnumMap<>(ChunkSectionLayer.class);
 		if (OwnMaterials.ON) OwnMaterials.compiling(true);
+		long cpu0 = TIME ? THREADS.getCurrentThreadCpuTime() : 0;
 		try {
 			mesh(ambientOcclusion, cutoutLeaves, blockModelSet, fluidModelSet, blockColors, sectionPos, region, builders, results, quads, startedLayers);
 		} finally {
+			if (TIME) time(THREADS.getCurrentThreadCpuTime() - cpu0);
 			if (OwnMaterials.ON) OwnMaterials.compiling(false);
 		}
 		for (Map.Entry<ChunkSectionLayer, BufferBuilder> entry : startedLayers.entrySet()) {
@@ -113,6 +132,12 @@ public final class OwnMesher {
 		if (HIDDEN) countHidden(quads, region, sectionPos);
 		if (OwnMergeStat.ON) OwnMergeStat.count(quads);
 		return results;
+	}
+
+	private static BlockQuadOutput output(boolean cutoutLeaves, BlockState state, BlockQuadOutput quadOutput, BlockQuadOutput opaqueQuadOutput,
+		@Nullable BlockQuadOutput leaves) {
+		if (ModelBlockRenderer.forceOpaque(cutoutLeaves, state)) return opaqueQuadOutput;
+		return leaves != null && OwnLeaves.leaf(state) ? leaves : quadOutput;
 	}
 
 	static void mesh(boolean ambientOcclusion, boolean cutoutLeaves, BlockStateModelSet blockModelSet, FluidStateModelSet fluidModelSet,
@@ -141,9 +166,10 @@ public final class OwnMesher {
 			: startedLayers != null ? translucent(startedLayers, builders, translucent) : Discard.INSTANCE;
 		mcopt.metal.shade.terrain.ShadeFluidLight[] fluidLight = new mcopt.metal.shade.terrain.ShadeFluidLight[1];
 		if (mcopt.metal.shade.terrain.ShadeFluidLight.ON && startedLayers != null) fluidOutput = mcopt.metal.shade.terrain.ShadeFluidLight.wrap(fluidOutput, level, minPos, fluidLight);
-		OwnApi.Mesher api = OwnApi.mesher(ambientOcclusion, blockColors, quads, () -> startedLayers != null ? translucent(startedLayers, builders, translucent) : Discard.INSTANCE);
+		OwnApi.Mesher api = OwnApi.mesher(ambientOcclusion, OwnLeaves.on(cutoutLeaves), blockColors, quads, () -> startedLayers != null ? translucent(startedLayers, builders, translucent) : Discard.INSTANCE);
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 		int minX = minPos.getX(), minY = minPos.getY(), minZ = minPos.getZ();
+		BlockQuadOutput leaves = OwnLeaves.on(cutoutLeaves) ? OwnLeaves.output(level, pos, quadOutput, opaqueQuadOutput) : null;
 		for (int i = 0; i < 4096; i++) {
 			pos.set(minX + (i & 15), minY + (i >> 4 & 15), minZ + (i >> 8));
 			BlockState blockState = level.getBlockState(pos);
@@ -168,11 +194,11 @@ public final class OwnMesher {
 						api.block(SectionPos.sectionRelative(pos.getX()), SectionPos.sectionRelative(pos.getY()), SectionPos.sectionRelative(pos.getZ()), region, pos,
 							blockState, blockModelSet.get(blockState), blockState.getSeed(pos));
 					} else if (blockState.getRenderShape() == RenderShape.MODEL && ownRenderer != null) {
-						ownRenderer.tesselateBlock(ModelBlockRenderer.forceOpaque(cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
+						ownRenderer.tesselateBlock(output(cutoutLeaves, blockState, quadOutput, opaqueQuadOutput, leaves),
 							SectionPos.sectionRelative(pos.getX()), SectionPos.sectionRelative(pos.getY()), SectionPos.sectionRelative(pos.getZ()), own, pos,
 							blockState, blockModelSet.get(blockState), blockState.getSeed(pos));
 					} else if (blockState.getRenderShape() == RenderShape.MODEL) {
-						blockRenderer.tesselateBlock(ModelBlockRenderer.forceOpaque(cutoutLeaves, blockState) ? opaqueQuadOutput : quadOutput,
+						blockRenderer.tesselateBlock(output(cutoutLeaves, blockState, quadOutput, opaqueQuadOutput, leaves),
 							SectionPos.sectionRelative(pos.getX()), SectionPos.sectionRelative(pos.getY()), SectionPos.sectionRelative(pos.getZ()), level, pos,
 							blockState, blockModelSet.get(blockState), blockState.getSeed(pos));
 					}

@@ -15,6 +15,7 @@ import com.lackothy.russet.pack.RussetPack;
 import com.lackothy.russet.video.RendererSettings.Api;
 import com.mojang.blaze3d.systems.RenderSystem;
 import mcopt.metal.Switch;
+import mcopt.metal.lod.LodConfig;
 import mcopt.metal.shade.Shade;
 import mcopt.metal.shade.ShadeSettingsScreen;
 import net.fabricmc.loader.api.FabricLoader;
@@ -31,10 +32,13 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public final class Pages {
 
@@ -70,8 +74,17 @@ public final class Pages {
         groups.add(new Group("Russet", version(Russet.MOD_ID), texture("item/apple"), RUSSET,
             List.of(loading(), packs(), fixes())));
         if (RendererSettings.present()) {
-            groups.add(new Group("Metal renderer", Switch.VERSION, texture("item/iron_ingot"), METAL,
-                List.of(metal())));
+            List<Page> metal = new ArrayList<>(List.of(renderer(), new Page("Shaders", List.of(shaders())), terrain(o), farTerrainPage()));
+            Set<String> shown = new HashSet<>();
+            Stream.concat(groups.stream().flatMap(group -> group.pages().stream()), metal.stream())
+                .flatMap(page -> page.sections().stream()).flatMap(section -> section.rows().stream())
+                .forEach(row -> {
+                    if (row.key() instanceof String key && key.startsWith("mcopt.")) {
+                        shown.add(key);
+                    }
+                });
+            metal.add(McoptFlags.extras(shown));
+            groups.add(new Group("Metal renderer", Switch.VERSION, texture("item/iron_ingot"), METAL, metal));
         }
         groups.addAll(GraphicsMods.groups());
         return groups;
@@ -205,6 +218,22 @@ public final class Pages {
             row("Shulker boxes and bundles", "How full the one in your hand is.", VideoOptions.ATTACK_CONTAINERS, when)));
     }
 
+    private static Row smartLeaves(Options o) {
+        OptionInstance<Boolean> cutout = o.cutoutLeaves();
+        return new Row.Switch(Component.literal("Smart leaves"), Component.literal("Trees stay see-through on the outside, "
+            + "and the leaves behind are drawn solid. A little faster in thick forests. Needs Cutout leaves, on "
+            + "Minecraft's Quality page."),
+            VideoOptions.SMART_LEAVES, VideoOptions.SMART_LEAVES::on,
+            on -> {
+                VideoOptions.SMART_LEAVES.set(on);
+                if (Minecraft.getInstance().level != null) {
+                    Minecraft.getInstance().levelExtractor.allChanged();
+                }
+            },
+            VideoOptions.SMART_LEAVES.initial(),
+            values -> values.get(cutout, cutout::get) && flagOn(values, OWN) && flagOn(values, OWN_MESH));
+    }
+
     private static Row row(String name, String description, VideoOptions.Toggle toggle, Predicate<Values> when) {
         return new Row.Switch(Component.literal(name), Component.literal(description), toggle, when);
     }
@@ -239,7 +268,7 @@ public final class Pages {
             rows.add(fabulous("Dynamic lights", "A torch or other light glows while you or anyone else holds it, and so do "
                 + "dropped ones, items in frames, anything on fire, blazes, fireballs, glow squids and creepers about to "
                 + "blow, as in LambDynamicLights. The chunks around a light are drawn again as it moves, which costs frames. "
-                + "They go out by themselves under full bright or night vision, and wherever they wouldn't show, as "
+                + "They go out by themselves under full bright, and wherever they wouldn't show, as "
                 + "outdoors in daylight. With Metal's shaders on, theirs light things instead. Its settings are under "
                 + "Dynamic lights below.",
                 VideoOptions.DYNAMIC_LIGHTS));
@@ -368,15 +397,13 @@ public final class Pages {
         return values.get(RendererSettings.FAR_TERRAIN, () -> RendererSettings.flag(RendererSettings.FAR_TERRAIN, false));
     }
 
-    private static Page metal() {
-        List<Integer> reaches = List.of(128, 256, 512, 1024, 2048);
-        return new Page("Metal", List.of(
+    private static Page renderer() {
+        return new Page("Renderer", List.of(
             new Section("Renderer", List.of(
                 new Row.Info(Component.literal("Drawing with"), Component.literal("The graphics API in use."),
                     Component.literal(RenderSystem.getDevice().getDeviceInfo().backendName())),
                 new Row.Info(Component.literal("Graphics"), Component.literal("The chip doing the drawing."),
                     Component.literal(RenderSystem.getDevice().getDeviceInfo().name())))),
-            shaders(),
             new Section("Resolution", List.of(
                 Row.Pick.of(Component.literal("Render scale"),
                     Component.literal("How much of the screen's resolution the world is drawn at. Below 100%, the "
@@ -385,13 +412,56 @@ public final class Pages {
                         + "With Shaders on, they use their own: Resolution in the pause menu."),
                     VideoOptions.RENDER_SCALE, Arrays.asList(VideoOptions.Scale.values()), s -> s.label,
                     values -> Switch.ON && !Shade.ENABLED))),
+            new Section("Performance", List.of(
+                McoptFlags.toggle("Thread priorities", "Minecraft's drawing thread goes ahead of everything else on the "
+                    + "processor, and the world's thread ahead of the rest, so frames come more evenly. Measured smoother on Macs.",
+                    "mcopt.qos", v -> !v.equals("off"), "on", "off", values -> true),
+                McoptFlags.toggle("Precise frame limit", "With a frame rate limit, each frame waits until just the right "
+                    + "moment, so frames come evenly. Off waits the way Minecraft does.", "mcopt.preciseLimiter", values -> true),
+                McoptFlags.toggle("Hold frames while making terrain", "In singleplayer, while new terrain is being made near you, "
+                    + "the frame rate is held at twice the screen's refresh rate, so drawing leaves the processor enough power to "
+                    + "make the world and its edge doesn't stay empty as you fly. Only matters above that frame rate.",
+                    "mcopt.edgeCap", v -> !v.isEmpty() && !v.equals("false"), "true", "false", values -> true))),
+            new Section("Startup", List.of(
+                McoptFlags.toggle("Load ahead", "Loads parts of the game on other threads while Minecraft starts, so it starts "
+                    + "sooner.", "mcopt.preload", values -> true),
+                McoptFlags.toggle("Keep translated shaders", "Keeps the shaders Metal has translated on disk, so the next start "
+                    + "reads them back instead of translating them again.", "mcopt.startup.mslCache", values -> true)))));
+    }
+
+    private static Page terrain(Options o) {
+        return new Page("Terrain", List.of(
+            new Section("Renderer", List.of(
+                McoptFlags.toggle("Russet's terrain renderer", "Draws the terrain near you with Russet's own renderer, which is "
+                    + "faster on Metal. Off draws it Minecraft's way. The settings below need it.", OWN, values -> true),
+                McoptFlags.toggle("Russet's chunk builder", "Builds the chunks near you with Russet's own mesher, which takes "
+                    + "about a third less processor time than Minecraft's and builds the same. Smart leaves needs it.", OWN_MESH,
+                    v -> !v.isEmpty() && !v.equals("false"), "true", "false", values -> flagOn(values, OWN)),
+                McoptFlags.toggle("See-through blocks too", "Russet's renderer draws water, glass and other see-through blocks "
+                    + "too, not only solid ones. Not with Improved Transparency.", "mcopt.own.translucent",
+                    values -> flagOn(values, OWN)))),
             new Section("Terrain", List.of(
                 new Row.Switch("Skip hidden see-through blocks", "Water and glass wholly behind solid blocks are left out "
                     + "before they are drawn, as solid blocks already are. It looks the same. Not with Improved Transparency.",
-                    VideoOptions.HIDDEN_SEE_THROUGH))),
-            new Section("Far terrain", List.of(
-                new Row.Note(Component.literal("These take effect the next time Minecraft starts.")),
-                new Row.Switch(Component.literal("Far terrain"), restart("Draws a simpler world past your render "
+                    VideoOptions.HIDDEN_SEE_THROUGH),
+                smartLeaves(o)))));
+    }
+
+    private static final String OWN = "mcopt.own";
+    private static final String OWN_MESH = "mcopt.own.mesh";
+
+    private static boolean flagOn(Values values, String key) {
+        return values.get(key, () -> {
+            String v = McoptFlags.value(key, McoptFlags.code(key));
+            return !v.isEmpty() && !v.equals("false") && !v.equals("off");
+        });
+    }
+
+    private static Page farTerrainPage() {
+        List<Integer> reaches = List.of(128, 256, 512, 1024, 2048);
+        return new Page("Far terrain", List.of(
+            new Section("Far terrain", farTerrainRows(concat(List.of(
+                new Row.Switch(Component.literal("Far terrain"), farRestart("Draws a simpler world past your render "
                     + "distance, out to the horizon. It costs a lot on a small graphics chip."), RendererSettings.FAR_TERRAIN,
                     () -> RendererSettings.flag(RendererSettings.FAR_TERRAIN, false),
                     on -> {
@@ -399,20 +469,29 @@ public final class Pages {
                         if (!on) {
                             RendererSettings.set(RendererSettings.FAR_TERRAIN_REACH, null);
                         }
+                        RendererSettings.applyFarTerrain();
                     }, false, values -> true),
-                new Row.Pick<>(Component.literal("Far terrain reach"), restart("How far far terrain reaches, in chunks."),
+                new Row.Pick<>(Component.literal("Far terrain reach"), farRestart("How far far terrain reaches, in chunks."),
                     RendererSettings.FAR_TERRAIN_REACH, reaches, r -> r + " chunks",
                     () -> reach(reaches),
-                    r -> RendererSettings.set(RendererSettings.FAR_TERRAIN_REACH,
-                        r == RendererSettings.DEFAULT_REACH || !RendererSettings.flag(RendererSettings.FAR_TERRAIN, false)
-                            ? null : String.valueOf(r)),
+                    r -> {
+                        RendererSettings.set(RendererSettings.FAR_TERRAIN_REACH,
+                            r == RendererSettings.DEFAULT_REACH || !RendererSettings.flag(RendererSettings.FAR_TERRAIN, false)
+                                ? null : String.valueOf(r));
+                        RendererSettings.applyFarTerrain();
+                    },
                     RendererSettings.DEFAULT_REACH, Pages::farTerrain),
-                new Row.Switch(Component.literal("Far trees"), restart("Trees in the far terrain."),
+                new Row.Switch(Component.literal("Far trees"), farRestart("Trees in the far terrain."),
                     RendererSettings.FAR_TERRAIN_TREES, () -> RendererSettings.flag(RendererSettings.FAR_TERRAIN_TREES, true),
-                    on -> RendererSettings.set(RendererSettings.FAR_TERRAIN_TREES, on ? null : "false"),
-                    true, Pages::farTerrain),
+                    on -> {
+                        RendererSettings.set(RendererSettings.FAR_TERRAIN_TREES, on ? null : "false");
+                        RendererSettings.applyFarTerrain();
+                    },
+                    true, Pages::farTerrain)),
+            farQualityRows(),
+            List.of(
                 new Row.Pick<>(Component.literal("Light mode"), restart("Far terrain with fewer, larger pieces, for "
-                    + "graphics chips with fewer than 10 cores. Automatic picks it on those."),
+                    + "graphics chips with fewer than 8 cores. Automatic picks it on those."),
                     RendererSettings.FAR_TERRAIN_SMALL, List.of("auto", "true", "false"), v -> switch (v) {
                         case "true" -> "On";
                         case "false" -> "Off";
@@ -423,7 +502,86 @@ public final class Pages {
                         return v == null ? "auto" : v;
                     },
                     v -> RendererSettings.set(RendererSettings.FAR_TERRAIN_SMALL, v.equals("auto") ? null : v),
-                    "auto", Pages::farTerrain)))));
+                    "auto", Pages::farTerrain),
+                new Row.Mod(Component.literal("Far fog"), restart("How far the fog over far terrain reaches, as a share of "
+                    + "far terrain's reach. Lower makes the distance hazier; higher shows far terrain more clearly, and its "
+                    + "edge more plainly."), FAR_HAZE, new Control.Cycle<>(() -> List.of("0.5", "0.75", "1.0", "1.5", "2.0"),
+                    () -> McoptFlags.value(FAR_HAZE, McoptFlags.code(FAR_HAZE)), v -> McoptFlags.set(FAR_HAZE, v, McoptFlags.code(FAR_HAZE)),
+                    v -> Component.literal(v + "x"), McoptFlags.initial(FAR_HAZE, McoptFlags.code(FAR_HAZE))),
+                    Pages::farTerrain)))))));
+    }
+
+    private static final String FAR_HAZE = "mcopt.lod.haze";
+
+    private static List<Row> farQualityRows() {
+        if (!RendererSettings.hasFarDetails()) {
+            return List.of();
+        }
+        return List.of(
+            new Row.Mod(Component.literal("Far quality"), Component.literal("How much detail far terrain has near "
+                + "you, out to Quality distance. Higher looks more like the real world and costs more. The details "
+                + "below can be set one by one."),
+                "mcopt.lod.quality", new Control.Cycle<>(Pages::farQualities, RendererSettings::farQuality,
+                    RendererSettings::setFarQuality, q -> Component.literal(capitalize(q)), RendererSettings.FAR_QUALITIES.get(0)),
+                Pages::farTerrain),
+            new Row.Mod(Component.literal("Quality distance"), Component.literal("How far from you far terrain's "
+                + "details reach, in blocks. Further costs more."),
+                RendererSettings.FAR_QUALITY_DISTANCE, new Control.Slider<Integer>(RendererSettings.QUALITY_DISTANCES.size() - 1,
+                    RendererSettings::qualityDistance,
+                    d -> {
+                        RendererSettings.set(RendererSettings.FAR_QUALITY_DISTANCE,
+                            d == RendererSettings.DEFAULT_QUALITY_DISTANCE ? null : String.valueOf(d));
+                        RendererSettings.applyFarTerrain();
+                    },
+                    d -> Math.max(0, RendererSettings.QUALITY_DISTANCES.indexOf(d)), RendererSettings.QUALITY_DISTANCES::get,
+                    d -> Component.literal(d + " blocks"), RendererSettings.DEFAULT_QUALITY_DISTANCE),
+                Pages::farTerrain),
+            new Row.Switch(Component.literal("Far lights at night"), Component.literal("Torches, lanterns and lava "
+                + "light far terrain at night, where you have been. Needs Far trees."),
+                RendererSettings.FAR_GLOW, () -> RendererSettings.flag(RendererSettings.FAR_GLOW, false),
+                on -> {
+                    RendererSettings.set(RendererSettings.FAR_GLOW, on ? "true" : null);
+                    RendererSettings.applyFarTerrain();
+                },
+                false, Pages::farTerrain));
+    }
+
+    private static List<String> farQualities() {
+        if (!RendererSettings.farQuality().equals(RendererSettings.CUSTOM_QUALITY)) {
+            return RendererSettings.farQualities();
+        }
+        List<String> all = new ArrayList<>(RendererSettings.farQualities());
+        all.add(RendererSettings.CUSTOM_QUALITY);
+        return all;
+    }
+
+    private static String capitalize(String word) {
+        return word.substring(0, 1).toUpperCase(Locale.ROOT) + word.substring(1);
+    }
+
+    @SafeVarargs
+    private static <T> List<T> concat(List<? extends T>... lists) {
+        List<T> all = new ArrayList<>();
+        for (List<? extends T> list : lists) {
+            all.addAll(list);
+        }
+        return all;
+    }
+
+    private static List<Row> farTerrainRows(List<Row> rows) {
+        if (LodConfig.LIVE) {
+            return rows;
+        }
+        List<Row> noted = new ArrayList<>();
+        noted.add(new Row.Note(Component.literal(Shade.ENABLED
+            ? "With Shaders on, these take effect the next time Minecraft starts."
+            : "These take effect the next time Minecraft starts.")));
+        noted.addAll(rows);
+        return noted;
+    }
+
+    private static Component farRestart(String description) {
+        return LodConfig.LIVE ? Component.literal(description) : restart(description);
     }
 
     private static int reach(List<Integer> reaches) {

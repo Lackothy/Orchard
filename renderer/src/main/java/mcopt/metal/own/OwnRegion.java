@@ -1,4 +1,4 @@
-// Modified for Russet: block light raised by Russet's dynamic lights (lightCoords, lightAt).
+// Modified for Russet: block light raised by Russet's dynamic lights (lightCoords, lightAt, only those near the section), and biomes read without the zoom inside one biome.
 package mcopt.metal.own;
 
 import com.lackothy.russet.fabulous.DynamicLights;
@@ -49,6 +49,14 @@ public final class OwnRegion implements BlockAndTintGetter {
 	@SuppressWarnings("unchecked")
 	private final Holder<Biome>[] biomes = new Holder[TW * TW * TH];
 	private final int[] biomeGen = new int[TW * TW * TH];
+	/** Russet: the quart cells the zoom reads for the tint box (QW x QW x QH from qx, qy, qz), per compile as biomes are. */
+	private static final int QW = TW / 4 + 2, QH = TH / 4 + 3;
+	@SuppressWarnings("unchecked")
+	private final Holder<Biome>[] quarts = new Holder[QW * QW * QH];
+	private final int[] quartGen = new int[QW * QW * QH];
+	private int qx, qy, qz;
+	/** Russet: the dynamic lights that reach the cached box (DynamicLights.near), taken once a compile. */
+	private DynamicLights.Built lights;
 	private boolean biomesUsed;
 	private final ColorResolver[] resolvers = new ColorResolver[4];
 	private final int[][] colors = new int[4][TW * TW * TH], colorGen = new int[4][TW * TW * TH];
@@ -70,6 +78,7 @@ public final class OwnRegion implements BlockAndTintGetter {
 		}
 		if (++r.gen == 0) {
 			java.util.Arrays.fill(r.biomeGen, 0);
+			java.util.Arrays.fill(r.quartGen, 0);
 			for (int[] cg : r.colorGen) java.util.Arrays.fill(cg, 0);
 			r.gen = 1;
 		}
@@ -85,12 +94,16 @@ public final class OwnRegion implements BlockAndTintGetter {
 		r.sx = origin.getX() - 2;
 		r.sy = origin.getY() - 2;
 		r.sz = origin.getZ() - 2;
+		r.lights = DynamicLights.near(r.sx, r.sy, r.sz, r.sx + S - 1, r.sy + S - 1, r.sz + S - 1);
 		r.lx = origin.getX() - 1;
 		r.ly = origin.getY() - 1;
 		r.lz = origin.getZ() - 1;
 		r.tx = origin.getX() - TR;
 		r.ty = origin.getY() - 1;
 		r.tz = origin.getZ() - TR;
+		r.qx = (r.tx - 2) >> 2;
+		r.qy = (r.ty - 2) >> 2;
+		r.qz = (r.tz - 2) >> 2;
 		if (PREFILL) r.prefill(region);
 		if (TINT) CURRENT.set(r);
 		return r;
@@ -103,8 +116,10 @@ public final class OwnRegion implements BlockAndTintGetter {
 		}
 		this.region = null;
 		this.light = null;
+		this.lights = null;
 		if (this.biomesUsed) {
 			java.util.Arrays.fill(this.biomes, null);
+			java.util.Arrays.fill(this.quarts, null);
 			this.biomesUsed = false;
 		}
 		if (TINT) CURRENT.remove();
@@ -149,6 +164,27 @@ public final class OwnRegion implements BlockAndTintGetter {
 		}
 	}
 
+	private Holder<Biome> biome(ClientLevel level, int x, int y, int z) {
+		int qx = (x - 2 >> 2) - this.qx, qy = (y - 2 >> 2) - this.qy, qz = (z - 2 >> 2) - this.qz;
+		if (qx >= 0 && qy >= 0 && qz >= 0 && qx + 1 < QW && qy + 1 < QH && qz + 1 < QW) {
+			Holder<Biome> b = this.quart(level, qx, qy, qz);
+			if (b == this.quart(level, qx + 1, qy, qz) && b == this.quart(level, qx, qy + 1, qz) && b == this.quart(level, qx + 1, qy + 1, qz)
+				&& b == this.quart(level, qx, qy, qz + 1) && b == this.quart(level, qx + 1, qy, qz + 1) && b == this.quart(level, qx, qy + 1, qz + 1)
+				&& b == this.quart(level, qx + 1, qy + 1, qz + 1)) return b;
+		}
+		return level.getBiome(this.tintPos.set(x, y, z));
+	}
+
+	private Holder<Biome> quart(ClientLevel level, int qx, int qy, int qz) {
+		int i = (qy * QW + qz) * QW + qx;
+		if (this.quartGen[i] == this.gen) return this.quarts[i];
+		Holder<Biome> b = level.getNoiseBiome(this.qx + qx, this.qy + qy, this.qz + qz);
+		this.quarts[i] = b;
+		this.quartGen[i] = this.gen;
+		this.biomesUsed = true;
+		return b;
+	}
+
 	@Nullable Integer blendTint(ClientLevel level, BlockPos pos, ColorResolver resolver, int dist) {
 		int x0 = pos.getX() - dist - this.tx, z0 = pos.getZ() - dist - this.tz, y = pos.getY() - this.ty;
 		int w = dist * 2 + 1;
@@ -180,7 +216,7 @@ public final class OwnRegion implements BlockAndTintGetter {
 					if (this.biomeGen[i] == g) {
 						biome = this.biomes[i];
 					} else {
-						biome = level.getBiome(this.tintPos.set(bx, pos.getY(), bz));
+						biome = this.biome(level, bx, pos.getY(), bz);
 						this.biomes[i] = biome;
 						this.biomeGen[i] = g;
 						this.biomesUsed = true;
@@ -264,7 +300,7 @@ public final class OwnRegion implements BlockAndTintGetter {
 		}
 		int blockLight = LightCoordsUtil.block(p), emission = state.getLightEmission();
 		// Russet: and to its dynamic lights' level, as vanilla's own lookup is (DynamicLightMixin).
-		return DynamicLights.raise(blockLight < emission ? LightCoordsUtil.withBlock(p, emission) : p, pos);
+		return this.dynamic(blockLight < emission ? LightCoordsUtil.withBlock(p, emission) : p, pos.getX(), pos.getY(), pos.getZ());
 	}
 
 	public float shadeBrightness(BlockState state, BlockPos pos) {
@@ -340,7 +376,12 @@ public final class OwnRegion implements BlockAndTintGetter {
 		}
 		int blockLight = LightCoordsUtil.block(p), emission = state.getLightEmission();
 		// Russet: and to its dynamic lights' level, as vanilla's own lookup is (DynamicLightMixin).
-		return DynamicLights.raise(blockLight < emission ? LightCoordsUtil.withBlock(p, emission) : p, px, py, pz);
+		return this.dynamic(blockLight < emission ? LightCoordsUtil.withBlock(p, emission) : p, px, py, pz);
+	}
+
+	private int dynamic(int packed, int x, int y, int z) {
+		int bx = x - this.sx, by = y - this.sy, bz = z - this.sz;
+		return (bx | by | bz) >= 0 && bx < S && by < S && bz < S ? DynamicLights.raise(packed, this.lights, x, y, z) : DynamicLights.raise(packed, x, y, z);
 	}
 
 	float shadeAt(BlockState state, int px, int py, int pz) {

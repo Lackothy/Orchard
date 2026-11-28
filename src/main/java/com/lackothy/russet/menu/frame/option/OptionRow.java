@@ -20,4 +20,8 @@ public interface OptionRow extends Renderable, GuiEventListener, NarratableEntry
     boolean undoFocusedActionButton();
 
     void clearActionButtonFocus();
+
+    /** Russet: each frame, drawn or scrolled out of view and not: what a row does besides drawing. */
+    default void everyFrame() {
+    }
 }

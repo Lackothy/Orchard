@@ -4,6 +4,7 @@ package com.lackothy.russet.menu.frame.option;
 import com.lackothy.russet.menu.option.MenuButton;
 import com.lackothy.russet.menu.option.MenuFact;
 import com.lackothy.russet.menu.option.MenuChoice;
+import com.lackothy.russet.menu.option.MenuEntry;
 import com.lackothy.russet.menu.option.MenuOption;
 import com.lackothy.russet.menu.option.MenuSlider;
 import com.lackothy.russet.menu.option.MenuToggle;
@@ -54,6 +55,7 @@ final class OptionRowFactory {
             case MenuToggle toggle -> new BooleanOptionRow(dim, this.theme, this.optionStateStore, toggle);
             case MenuSlider<?> slider -> new IntegerSliderOptionRow<>(dim, this.theme, this.optionStateStore, slider);
             case MenuChoice<?> choice -> new EnumOptionRow<>(dim, this.theme, this.optionStateStore, choice);
+            case MenuEntry entry -> new EntryOptionRow(this.screen, dim, this.theme, this.optionStateStore, entry);
             case MenuButton button -> new ExternalButtonOptionRow(this.screen, dim, this.theme, this.optionStateStore, button);
             case MenuFact fact -> new FactOptionRow(dim, this.theme, this.optionStateStore, fact);
             default -> new UnsupportedOptionRow(dim, this.theme, this.optionStateStore, option);

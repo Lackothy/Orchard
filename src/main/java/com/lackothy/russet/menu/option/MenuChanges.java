@@ -110,6 +110,7 @@ public final class MenuChanges implements Values {
             case Control.Cycle<?> cycle -> choice(id, name, tooltip, enabled, cycle);
             case Control.Slider<?> slider -> slider(id, name, tooltip, enabled, slider);
             case Control.Text text -> new MenuFact(id, name, tooltip, text.value());
+            case Control.Entry entry -> new MenuEntry(id, name, tooltip, enabled, entry.get(), entry.set(), entry.fallback(), entry.problem());
             case Control.Action action -> new MenuButton(id, name, tooltip, enabled, action.label(), action.run());
             case null -> new MenuFact(id, name, tooltip, null);
         };

@@ -1,3 +1,4 @@
+// Modified for Russet: the facets' copy of the CompFrame is the frame's own size (Lod.COMP_FRAME_BYTES), which grew.
 package mcopt.metal.lod;
 
 import org.joml.Matrix4f;
@@ -444,7 +445,7 @@ final class LodPk {
 	}
 
 	private final boolean[] visPending = new boolean[SECTORS];
-	private final long visFacet = MemoryUtil.nmemCalloc(1, 512), visUse = MemoryUtil.nmemCalloc(1, 16);
+	private final long visFacet = MemoryUtil.nmemCalloc(1, Lod.COMP_FRAME_BYTES), visUse = MemoryUtil.nmemCalloc(1, 16);
 	int statVisPruned;
 
 	void prune(long lod, long enc, long frame, int frameLength, long comp, int compLength, long bufs) {

@@ -83,15 +83,20 @@ abstract class AbstractOptionRow extends BaseWidget implements ContainerEventHan
             OptionUndoAction.normalizeEquivalentChange(this.statefulOption);
         }
 
-        if (!isLeftMouseButtonDown()) {
-            this.releaseMouseHold();
-            this.actionButtons.releaseLayoutHold();
-        }
+        this.everyFrame();
 
         this.prepareRender(mouseX, mouseY, delta);
         this.renderRow(guiGraphics, mouseX, mouseY);
         this.renderControl(guiGraphics, mouseX, mouseY, delta);
         this.actionButtons.render(guiGraphics, mouseX, mouseY);
+    }
+
+    @Override
+    public void everyFrame() {
+        if (!isLeftMouseButtonDown()) {
+            this.releaseMouseHold();
+            this.actionButtons.releaseLayoutHold();
+        }
     }
 
     @Override

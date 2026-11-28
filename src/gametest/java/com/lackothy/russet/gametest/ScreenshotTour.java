@@ -3,12 +3,14 @@ package com.lackothy.russet.gametest;
 import com.lackothy.russet.loading.Ending;
 import com.lackothy.russet.loading.Loader;
 import com.lackothy.russet.loading.Rehearsal;
+import com.lackothy.russet.menu.EntryScreen;
 import com.lackothy.russet.menu.VideoOptionsScreen;
 import com.lackothy.russet.menu.frame.tab.Tab;
 import com.lackothy.russet.menu.frame.tab.TabFrame;
 import com.lackothy.russet.menu.frame.option.OptionRow;
 import com.lackothy.russet.menu.layout.LayoutBounds;
 import com.lackothy.russet.menu.option.MenuChanges;
+import com.lackothy.russet.menu.option.MenuEntry;
 import com.lackothy.russet.menu.option.MenuSetting;
 import com.lackothy.russet.menu.widget.TabHeaderWidget;
 import com.lackothy.russet.pack.RussetPack;
@@ -16,6 +18,7 @@ import com.lackothy.russet.rain.config.ConfigManager;
 import com.lackothy.russet.video.Control;
 import com.lackothy.russet.video.GraphicsMods;
 import com.lackothy.russet.video.Pages;
+import com.lackothy.russet.video.RendererSettings;
 import com.lackothy.russet.video.RendererSettings.Api;
 import com.lackothy.russet.video.Row;
 import com.lackothy.russet.video.Values;
@@ -23,6 +26,8 @@ import com.lackothy.russet.video.VideoOptions;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.Window;
 import mcopt.metal.Switch;
+import mcopt.metal.lod.Lod;
+import mcopt.metal.lod.LodConfig;
 import mcopt.metal.shade.Shade;
 import mcopt.metal.shade.ShadeSettingsScreen;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -31,6 +36,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions;
 import net.minecraft.client.GraphicsPreset;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.OptionInstance;
 import net.minecraft.client.gui.components.events.ContainerEventHandler;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
@@ -43,8 +49,10 @@ import net.minecraft.util.LightCoordsUtil;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.sdl.SDLKeycode;
 
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -62,6 +70,28 @@ public final class ScreenshotTour implements FabricClientGameTest {
         size(context, 854, 480, Integer.getInteger("russet.guiScale", 0));
         if (Boolean.getBoolean("russet.tour.frames")) {
             ScreenTiming.run(context, OUT);
+            context.setScreen(TitleScreen::new);
+            return;
+        }
+        if (Boolean.getBoolean("russet.tour.farOnly")) {
+            int distance = context.computeOnClient(mc -> mc.options.renderDistance().get());
+            context.runOnClient(mc -> mc.options.renderDistance().set(4));
+            try (TestSingleplayerContext world = context.worldBuilder()
+                .adjustSettings(settings -> settings.setWorldType(settings.getNormalPresetList().getFirst())).create()) {
+                world.getConnection().waitForChunksRender();
+                farTerrain(context, world);
+            }
+            context.runOnClient(mc -> mc.options.renderDistance().set(distance));
+            context.setScreen(TitleScreen::new);
+            return;
+        }
+        if (Boolean.getBoolean("russet.tour.leaves")) {
+            LeafBench.run(context);
+            context.setScreen(TitleScreen::new);
+            return;
+        }
+        if (Boolean.getBoolean("russet.tour.far")) {
+            FarBench.run(context);
             context.setScreen(TitleScreen::new);
             return;
         }
@@ -189,20 +219,23 @@ public final class ScreenshotTour implements FabricClientGameTest {
                     if (!whole) {
                         throw new AssertionError("Dynamic lights at Smoothness Off lit a block in sixteenths of a level");
                     }
-                    world.getServer().runCommand("effect give @p night_vision 60 0 true");
+                    double gamma = context.computeOnClient(mc -> mc.options.gamma().get());
+                    context.runOnClient(mc -> fullBright(mc, 15.0));
                     context.waitTicks(40);
                     int seeing = context.computeOnClient(mc -> LightCoordsUtil.block(LightCoordsUtil.getLightCoords(mc.level, mc.player.blockPosition())));
-                    world.getServer().runCommand("effect clear @p night_vision");
+                    context.runOnClient(mc -> fullBright(mc, gamma));
                     context.waitTicks(5);
                     int after = context.computeOnClient(mc -> LightCoordsUtil.block(LightCoordsUtil.getLightCoords(mc.level, mc.player.blockPosition())));
+                    world.getServer().runCommand("gamemode spectator @p");
                     world.getServer().runCommand("time set noon");
                     world.getServer().runCommand("execute as @p at @s run tp @s ~ 200 ~");
                     context.waitTicks(40);
                     int noon = context.computeOnClient(mc -> LightCoordsUtil.block(LightCoordsUtil.getLightCoords(mc.level, mc.player.blockPosition())));
                     world.getServer().runCommand("execute as @p at @s run tp @s ~ -45 ~");
+                    world.getServer().runCommand("gamemode creative @p");
                     context.waitTicks(5);
                     if (seeing != 0 || after < 12 || noon != 0) {
-                        throw new AssertionError("Block light at the player's feet should be 0 under night vision, 12+ after it and 0 in "
+                        throw new AssertionError("Block light at the player's feet should be 0 under full bright, 12+ after it and 0 in "
                             + "the open at noon, not " + seeing + ", " + after + " and " + noon);
                     }
                 }
@@ -228,9 +261,171 @@ public final class ScreenshotTour implements FabricClientGameTest {
             context.waitTicks(8);
             shot(context, "attack-bow");
             context.getInput().releaseKey(options -> options.keyUse);
+            farTerrain(context, world);
+            renderScaleSky(context, world);
             context.runOnClient(mc -> mc.options.graphicsPreset().set(before));
         }
         context.runOnClient(mc -> mc.options.renderDistance().set(distance));
+    }
+
+    private static void fullBright(Minecraft mc, double gamma) {
+        try {
+            Field value = OptionInstance.class.getDeclaredField("value");
+            value.setAccessible(true);
+            value.set(mc.options.gamma(), gamma);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void farTerrain(ClientGameTestContext context, TestSingleplayerContext world) {
+        if (!LodConfig.LIVE) {
+            return;
+        }
+        String[] keys = {RendererSettings.FAR_TERRAIN, RendererSettings.FAR_TERRAIN_REACH, RendererSettings.FAR_TERRAIN_TREES};
+        String[] saved = context.computeOnClient(mc -> Arrays.stream(keys).map(RendererSettings::get).toArray(String[]::new));
+        world.getServer().runCommand("gamemode spectator @p");
+        world.getServer().runCommand("time set noon");
+        world.getServer().runCommand("execute as @p at @s run forceload add ~292 ~-16 ~323 ~15");
+        context.waitTicks(100);
+        world.getServer().runCommand("execute as @p at @s run fill ~300 100 ~-8 ~315 159 ~7 gold_block");
+        world.getServer().runCommand("execute as @p at @s run fill ~292 160 ~-16 ~323 163 ~15 red_wool");
+        world.getServer().runCommand("execute as @p at @s run forceload remove ~292 ~-16 ~323 ~15");
+        context.waitTicks(60);
+        world.getServer().runOnServer(server -> server.saveEverything(true, true, true));
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ 200 ~ 0 10");
+        context.runOnClient(mc -> {
+            RendererSettings.set(RendererSettings.FAR_TERRAIN, "true");
+            RendererSettings.set(RendererSettings.FAR_TERRAIN_REACH, "256");
+            RendererSettings.applyFarTerrain();
+        });
+        context.waitTicks(200);
+        shot(context, "far-terrain-on");
+        plain(context, "far-terrain-plain");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ 150 ~ -90 5");
+        context.waitTicks(100);
+        for (int i = 0; i < 30 && context.computeOnClient(mc -> Lod.savedPending()) > 0; i++) {
+            context.waitTicks(20);
+        }
+        context.waitTicks(20);
+        shot(context, "far-terrain-saved");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ 200 ~ 0 10");
+        context.waitTicks(20);
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ 110 ~ 0 0");
+        context.waitTicks(100);
+        shot(context, "far-terrain-horizon");
+        plain(context, "far-terrain-horizon-plain");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ 90 ~ 0 35");
+        context.waitTicks(60);
+        shot(context, "far-terrain-edge");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~320 ~ ~");
+        context.waitTicks(200);
+        shot(context, "far-terrain-moved");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~-320 ~ ~");
+        context.waitTicks(100);
+        quality(context, world);
+        float on = context.computeOnClient(mc -> Lod.activeReach());
+        context.runOnClient(mc -> {
+            RendererSettings.set(RendererSettings.FAR_TERRAIN_REACH, null);
+            RendererSettings.applyFarTerrain();
+        });
+        context.waitTicks(20);
+        float moved = context.computeOnClient(mc -> Lod.activeReach());
+        context.runOnClient(mc -> {
+            RendererSettings.set(RendererSettings.FAR_TERRAIN, null);
+            RendererSettings.applyFarTerrain();
+        });
+        context.waitTicks(20);
+        shot(context, "far-terrain-off");
+        float off = context.computeOnClient(mc -> Lod.activeReach());
+        context.runOnClient(mc -> {
+            for (int i = 0; i < keys.length; i++) {
+                RendererSettings.set(keys[i], saved[i]);
+            }
+            RendererSettings.applyFarTerrain();
+        });
+        if (on != 256 * 16 || moved != RendererSettings.DEFAULT_REACH * 16 || off != 0) {
+            throw new AssertionError("Far terrain changed in the game should reach 4096 blocks, then "
+                + RendererSettings.DEFAULT_REACH * 16 + ", then stop; it reached " + on + ", " + moved + " and " + off);
+        }
+    }
+
+    private static void quality(ClientGameTestContext context, TestSingleplayerContext world) {
+        double y = context.computeOnClient(mc -> mc.player.getY());
+        int distance = context.computeOnClient(mc -> mc.options.renderDistance().get());
+        for (int z = -48; z <= 48; z += 16) {
+            for (int x = -48; x <= 48; x += 16) {
+                world.getServer().runCommand("execute as @p at @s positioned ~" + x + " ~ ~" + z
+                    + " positioned over motion_blocking run setblock ~ ~ ~ torch");
+            }
+        }
+        context.waitTicks(40);
+        context.runOnClient(mc -> mc.options.renderDistance().set(4));
+        size(context, 1920, 1080, Integer.getInteger("russet.guiScale", 0));
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ 110 ~ 0 12");
+        context.waitTicks(100);
+        List<String> presets = context.computeOnClient(mc -> RendererSettings.farQualities());
+        String top = presets.get(presets.size() - 1);
+        shot(context, "far-terrain-low");
+        String quality = context.computeOnClient(mc -> {
+            RendererSettings.setFarQuality(top);
+            return RendererSettings.farQuality();
+        });
+        context.waitTicks(5);
+        shot(context, "far-terrain-top");
+        world.getServer().runCommand("time set midnight");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ ~ ~-150 0 12");
+        context.waitTicks(100);
+        shot(context, "far-terrain-night-top");
+        context.runOnClient(mc -> RendererSettings.setFarQuality("low"));
+        context.waitTicks(5);
+        shot(context, "far-terrain-night-low");
+        world.getServer().runCommand("time set noon");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ ~ ~150");
+        context.runOnClient(mc -> mc.options.renderDistance().set(distance));
+        size(context, 854, 480, Integer.getInteger("russet.guiScale", 0));
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ " + y + " ~ 0 35");
+        context.waitTicks(100);
+        if (RendererSettings.hasFarDetails() && !quality.equals(top)) {
+            throw new AssertionError("Far quality set to " + top + " should read back as it; it read " + quality);
+        }
+    }
+
+    private static void plain(ClientGameTestContext context, String name) {
+        float[] look = context.computeOnClient(mc -> new float[] {LodConfig.GRAIN, LodConfig.FAR_SHADE});
+        context.runOnClient(mc -> {
+            LodConfig.GRAIN = 0;
+            LodConfig.FAR_SHADE = 0;
+        });
+        context.waitTicks(5);
+        shot(context, name);
+        context.runOnClient(mc -> {
+            LodConfig.GRAIN = look[0];
+            LodConfig.FAR_SHADE = look[1];
+        });
+        context.waitTicks(5);
+    }
+
+    private static void renderScaleSky(ClientGameTestContext context, TestSingleplayerContext world) {
+        if (!Switch.ON || Shade.ENABLED) {
+            return;
+        }
+        VideoOptions.Scale saved = context.computeOnClient(mc -> VideoOptions.RENDER_SCALE.get());
+        world.getServer().runCommand("gamemode spectator @p");
+        world.getServer().runCommand("time set noon");
+        world.getServer().runCommand("execute as @p at @s run tp @s ~ 200 ~ 0 -10");
+        context.runOnClient(mc -> VideoOptions.RENDER_SCALE.set(VideoOptions.Scale.FULL));
+        context.waitTicks(SETTLE);
+        context.runOnClient(mc -> mc.levelExtractor.onResourceManagerReload(mc.getResourceManager()));
+        context.waitTicks(5);
+        context.runOnClient(mc -> VideoOptions.RENDER_SCALE.set(VideoOptions.Scale.P50));
+        context.waitTicks(SETTLE);
+        shot(context, "render-scale-sky");
+        context.runOnClient(mc -> mc.levelExtractor.onResourceManagerReload(mc.getResourceManager()));
+        context.waitTicks(5);
+        context.runOnClient(mc -> VideoOptions.RENDER_SCALE.set(VideoOptions.Scale.FULL));
+        context.waitTicks(SETTLE);
+        context.runOnClient(mc -> VideoOptions.RENDER_SCALE.set(saved));
     }
 
     private static void otherMods(ClientGameTestContext context) {
@@ -413,6 +608,7 @@ public final class ScreenshotTour implements FabricClientGameTest {
                 .flatMap(group -> group.pages().stream()).map(Pages.Page::name).toList();
         });
         List<String> keys = context.computeOnClient(mc -> Pages.all().stream()
+            .filter(page -> !page.name().equals("Extras"))
             .flatMap(page -> page.sections().stream())
             .flatMap(section -> section.rows().stream())
             .map(row -> row.name().getString())
@@ -423,11 +619,12 @@ public final class ScreenshotTour implements FabricClientGameTest {
         }
         for (String page : pages) {
             openVideo(context, page);
-            shot(context, "video-" + page.toLowerCase(Locale.ROOT));
+            shot(context, "video-" + page.toLowerCase(Locale.ROOT).replace(' ', '-'));
         }
         openVideo(context, MenuChanges.MENU_PAGE);
         shot(context, "video-menu");
         shaderSettings(context);
+        flagEntry(context);
         openVideo(context, "Loading");
         key(context, InputConstants.KEY_F, InputConstants.KEYCODE_F, CONTROL);
         context.getInput().typeChars("clouds");
@@ -567,7 +764,7 @@ public final class ScreenshotTour implements FabricClientGameTest {
         if (!context.computeOnClient(mc -> Shade.ENABLED)) {
             return;
         }
-        openVideo(context, "Metal");
+        openVideo(context, "Shaders");
         context.runOnClient(mc -> Pages.all().stream().flatMap(page -> page.sections().stream())
             .flatMap(section -> section.rows().stream())
             .filter(row -> row instanceof Row.Action && row.name().getString().equals("More shader settings"))
@@ -585,6 +782,46 @@ public final class ScreenshotTour implements FabricClientGameTest {
             if (!(mc.gui.screen() instanceof VideoOptionsScreen)) {
                 throw new AssertionError("Esc should come back to Russet's settings, not " + mc.gui.screen());
             }
+        });
+    }
+
+    private static void flagEntry(ClientGameTestContext context) {
+        if (!context.computeOnClient(mc -> Switch.ON)) {
+            return;
+        }
+        openVideo(context, "Extras");
+        context.runOnClient(mc -> mc.gui.setScreen(new EntryScreen(mc.gui.screen(), (MenuEntry) (Object) setting(mc.gui.screen(), "metal.inFlight"))));
+        context.waitTicks(SETTLE);
+        context.getInput().typeChars("x");
+        context.waitTicks(SETTLE);
+        shot(context, "video-entry-problem");
+        key(context, InputConstants.KEY_RETURN, InputConstants.KEYCODE_RETURN, 0);
+        context.runOnClient(mc -> {
+            if (!(mc.gui.screen() instanceof EntryScreen)) {
+                throw new AssertionError("Enter on a value that isn't a whole number should stay on the entry, not open " + mc.gui.screen());
+            }
+        });
+        key(context, InputConstants.KEY_ESCAPE, SDLKeycode.SDLK_ESCAPE, 0);
+        context.waitTicks(SETTLE);
+        context.runOnClient(mc -> {
+            if (!(mc.gui.screen() instanceof VideoOptionsScreen menu) || setting(menu, "metal.inFlight").hasChanged()) {
+                throw new AssertionError("Esc should go back to the menu with nothing held, not to " + mc.gui.screen());
+            }
+            mc.gui.setScreen(new EntryScreen(menu, (MenuEntry) (Object) setting(menu, "metal.inFlight")));
+        });
+        context.waitTicks(SETTLE);
+        for (int i = 0; i < 4; i++) {
+            key(context, InputConstants.KEY_BACKSPACE, InputConstants.KEYCODE_BACKSPACE, 0);
+        }
+        context.getInput().typeChars("3");
+        key(context, InputConstants.KEY_RETURN, InputConstants.KEYCODE_RETURN, 0);
+        context.waitTicks(SETTLE);
+        shot(context, "video-entry-held");
+        context.runOnClient(mc -> {
+            if (!(mc.gui.screen() instanceof VideoOptionsScreen menu) || !"3".equals(setting(menu, "metal.inFlight").getValidatedValue())) {
+                throw new AssertionError("Enter on 3 should hold it in the menu, not leave " + mc.gui.screen());
+            }
+            menu.changes().resetAllOptionsFromBindings();
         });
     }
 

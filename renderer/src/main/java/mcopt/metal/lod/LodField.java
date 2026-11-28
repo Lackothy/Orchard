@@ -1,3 +1,6 @@
+// Modified for Russet: FORMAT 13, so tiles cached with water's old colors, unblended biome colours or water's old below colour (now its lit
+// floor) are made again; verify compares water's colour; the world's saved chunks are written into tiles as they arrive (LodSaved); real
+// and saved chunks' block light goes into the crown words (LodClip.glowBits).
 package mcopt.metal.lod;
 
 import java.io.BufferedInputStream;
@@ -24,7 +27,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.joml.FrustumIntersection;
 
 final class LodField {
-	static final int FORMAT = 10;
+	static final int FORMAT = 13;
 	final LodNoise noise;
 	final LodClip clip;
 	final @org.jspecify.annotations.Nullable LodForest forest;
@@ -72,7 +75,18 @@ final class LodField {
 			LodConfig.RADIUS_CHUNKS, clip.levels, clip.n, clip.n, clip.bytes() / 1048576.0, java.util.Arrays.toString(clip.switchDist), LodConfig.THREADS, cache);
 	}
 
+	@org.jspecify.annotations.Nullable LodSaved saved;
+
+	void work(double priority, Runnable task) {
+		this.jobs.add(new Job(priority, this.seq.incrementAndGet(), 0, task));
+	}
+
+	void post(Runnable task) {
+		this.results.add(task);
+	}
+
 	void close() {
+		if (this.saved != null) this.saved.close();
 		this.saveDirty(true);
 		this.closed = true;
 		for (Thread t : this.threads) t.interrupt();
@@ -159,9 +173,12 @@ final class LodField {
 				if (this.clip.resident(0, tx, tz)) return;
 				this.chunkBuilt.remove(key);
 			}
-			if (this.clip.put(level, tx, tz, g, c, cr, tw, rn, pl) && level == 0) {
-				List<LodChunks.Summary> real = this.waiting.remove(key);
-				if (real != null) for (LodChunks.Summary s : real) this.applyChunk(s);
+			if (this.clip.put(level, tx, tz, g, c, cr, tw, rn, pl)) {
+				if (level == 0) {
+					List<LodChunks.Summary> real = this.waiting.remove(key);
+					if (real != null) for (LodChunks.Summary s : real) this.applyChunk(s);
+				}
+				if (this.saved != null) this.saved.arrived(level, tx, tz);
 			}
 			this.arrived(key);
 		});
@@ -354,7 +371,7 @@ final class LodField {
 		return this.held.size();
 	}
 
-	private void applyChunk(LodChunks.Summary s, int fromLevel, int toLevel) {
+	void applyChunk(LodChunks.Summary s, int fromLevel, int toLevel) {
 		int bx = s.chunkX() * 16, bz = s.chunkZ() * 16;
 		for (int level = fromLevel; level < toLevel; level++) {
 			int span = this.clip.span(level);
@@ -380,15 +397,17 @@ final class LodField {
 					int surface = wet ? s.water()[k] : s.height()[k];
 					if (s.crownLo()[k] > surface) {
 						this.clip.putCell(level, cx, cz, LodClip.crownGeomWord(s.crownHi()[k], s.crownHi()[k] - s.crownLo()[k], false) | clear,
-							LodClip.colorWord(s.top()[k], s.side()[k]), LodClip.crownWord(surface, s.groundColor()[k]), s.tex()[k], s.runs()[k], 0, 0);
+							LodClip.colorWord(s.top()[k], s.side()[k]), LodClip.crownWord(surface, s.groundColor()[k]) | LodClip.glowBits(s.glow()[k]), s.tex()[k],
+							s.runs()[k], 0, 0);
 					} else if (level == 0) {
 						int pa = s.plantA()[k];
 						this.clip.putCell(level, cx, cz, LodClip.geomWord(Math.max(surface, s.crownHi()[k]), wet) | clear | (s.fringe()[k] && !wet ? LodClip.GEOM_FRINGE : 0)
 							| ((pa & 1023) != 0 && !wet ? LodClip.plantBits((pa >> 20 & 3) + 1) : 0),
-							LodClip.colorWord(s.top()[k], s.side()[k]), LodClip.belowWord(s.below()[k]), s.tex()[k], 0, pa, s.plantB()[k]);
+							LodClip.colorWord(s.top()[k], s.side()[k]), LodClip.belowWord(s.below()[k]) | LodClip.glowBits(s.glow()[k]), s.tex()[k], 0, pa,
+							s.plantB()[k]);
 					} else {
 						this.clip.putCell(level, cx, cz, LodClip.geomWord(Math.max(surface, s.crownHi()[k]), wet) | clear,
-							LodClip.colorWord(s.top()[k], LodColors.mix(s.side()[k], s.below()[k], 0.6F)), 0, 0, 0, 0, 0);
+							LodClip.colorWord(s.top()[k], LodColors.mix(s.side()[k], s.below()[k], 0.6F)), LodClip.glowBits(s.glow()[k]), 0, 0, 0, 0);
 					}
 				}
 			}
@@ -416,7 +435,7 @@ final class LodField {
 				if (s.crownLo()[k] > surface) {
 					gw = LodClip.crownGeomWord(s.crownHi()[k], s.crownHi()[k] - s.crownLo()[k], false) | clear;
 					cw = LodClip.colorWord(s.top()[k], s.side()[k]);
-					crw = LodClip.crownWord(surface, s.groundColor()[k]);
+					crw = LodClip.crownWord(surface, s.groundColor()[k]) | LodClip.glowBits(s.glow()[k]);
 					runs = s.runs()[k];
 				} else {
 					pa = s.plantA()[k];
@@ -424,7 +443,7 @@ final class LodField {
 					gw = LodClip.geomWord(Math.max(surface, s.crownHi()[k]), wet) | clear | (s.fringe()[k] && !wet ? LodClip.GEOM_FRINGE : 0)
 						| ((pa & 1023) != 0 && !wet ? LodClip.plantBits((pa >> 20 & 3) + 1) : 0);
 					cw = LodClip.colorWord(s.top()[k], s.side()[k]);
-					crw = LodClip.belowWord(s.below()[k]);
+					crw = LodClip.belowWord(s.below()[k]) | LodClip.glowBits(s.glow()[k]);
 				}
 				if (pl == null) gw &= ~LodClip.GEOM_PLANT_BITS;
 				if (cr == null) gw &= ~LodClip.GEOM_CROWN_BITS;
@@ -453,7 +472,12 @@ final class LodField {
 	private int verifyLogged, groundLogged, chunkLogged;
 	private final long[] dyHist = new long[17];
 	private final long[] wetStats = new long[4];
+	private final long[] wetBrightHist = new long[17];
 	private final java.util.HashMap<Long, Integer> chunkMiss = new java.util.HashMap<>();
+
+	private static int bright565(int c) {
+		return (((c >> 11) & 31) * 255 / 31 + ((c >> 5) & 63) * 255 / 63 + (c & 31) * 255 / 31) / 3;
+	}
 
 	private void verify(LodChunks.Summary s) {
 		long key = LodForest.chunkKey(s.chunkX(), s.chunkZ());
@@ -475,6 +499,11 @@ final class LodField {
 			BlockState realTopState = LodPalette.stateOf(s.tex()[k] & 1023);
 			boolean realWater = wet || realTopState != null && realTopState.is(net.minecraft.world.level.block.Blocks.ICE);
 			this.wetStats[(realWater ? 1 : 0) + (lodWet ? 2 : 0)]++;
+			if (wet && lodWet) {
+				int real = LodClip.rgb565(s.top()[k]), far = w[1] & 0xFFFF;
+				int d = bright565(real) - bright565(far);
+				this.wetBrightHist[Math.clamp(Math.round(d / 8.0F) + 8, 0, 16)]++;
+			}
 			boolean lodCrown = (w[0] & LodClip.GEOM_CROWN) != 0;
 			int lodTop = (w[0] & 0xFFF) - 512;
 			if (realCrown == lodCrown) this.vs[4]++;
@@ -541,6 +570,7 @@ final class LodField {
 				100.0 * this.vs[9] / Math.max(1, this.vs[8]), 100.0 * this.vs[10] / dry, 100.0 * this.vs[11] / dry, 100.0 * this.vs[12] / dry);
 			System.out.println("mcopt-lod: verify: open ground real - far terrain y, -8..8: " + java.util.Arrays.toString(this.dyHist));
 			System.out.println("mcopt-lod: verify: water (dry both, real only, far terrain only, both): " + java.util.Arrays.toString(this.wetStats));
+			System.out.println("mcopt-lod: verify: water in both, real - far terrain brightness, -64..64 by 8: " + java.util.Arrays.toString(this.wetBrightHist));
 			int[] buckets = new int[6];
 			int[] crownBuckets = new int[6];
 			for (long v : this.verified) {

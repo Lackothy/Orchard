@@ -1,3 +1,4 @@
+// Modified for Russet: the tile's blended biome colours while it is made (blend).
 package mcopt.metal.lod;
 
 import net.minecraft.core.Holder;
@@ -31,6 +32,7 @@ final class LodTile {
 	final int[] plantColor;
 	boolean waterKnown;
 	boolean impostorTrees = true;
+	LodColors.@org.jspecify.annotations.Nullable Blend blend;
 	int source;
 
 	LodTile(int level, int tx, int tz) {

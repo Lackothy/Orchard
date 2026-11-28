@@ -1,3 +1,4 @@
+// Modified for Russet: smart leaves (OwnLeaves) choose where a leaf block's quads go.
 package mcopt.metal.own;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -25,12 +26,17 @@ final class OwnFrapi implements OwnApi.Mesher {
 	private @Nullable VertexConsumer translucentSink;
 	private final float[] p = new float[12], uv = new float[8];
 	private final int[] abgr = new int[4], light = new int[4];
+	private boolean smartLeaves, leaf;
+	private @Nullable BlockAndTintGetter level;
+	private @Nullable BlockPos pos;
+	private final BlockPos.MutableBlockPos near = new BlockPos.MutableBlockPos();
 
 	private OwnFrapi() {
 	}
 
-	static OwnApi.Mesher get(boolean ambientOcclusion, BlockColors blockColors, OwnQuads quads, Supplier<VertexConsumer> translucent) {
+	static OwnApi.Mesher get(boolean ambientOcclusion, boolean smartLeaves, BlockColors blockColors, OwnQuads quads, Supplier<VertexConsumer> translucent) {
 		OwnFrapi f = LOCAL.get();
+		f.smartLeaves = smartLeaves;
 		f.blocks = Renderer.get().altModelBlockRenderer(ambientOcclusion, true, blockColors);
 		f.quads = quads;
 		f.translucent = translucent;
@@ -40,12 +46,17 @@ final class OwnFrapi implements OwnApi.Mesher {
 
 	@Override
 	public void block(float x, float y, float z, BlockAndTintGetter level, BlockPos pos, BlockState state, BlockStateModel model, long seed) {
+		this.leaf = this.smartLeaves && OwnLeaves.leaf(state);
+		this.level = level;
+		this.pos = pos;
 		this.blocks.tesselateBlock(this.emitter, x, y, z, level, pos, state, model, seed);
 	}
 
 	private void emitted(MutableQuadView quad) {
 		ChunkSectionLayer layer = quad.chunkLayer();
 		if (layer == ChunkSectionLayer.SOLID || layer == ChunkSectionLayer.CUTOUT) {
+			int side = this.leaf ? OwnLeaves.side(this.level, this.pos, quad.cullFace(), this.near) : OwnLeaves.AS_IS;
+			if (side == OwnLeaves.HIDDEN) return;
 			float[] p = this.p, uv = this.uv;
 			int[] abgr = this.abgr, light = this.light;
 			for (int v = 0; v < 4; v++) {
@@ -58,7 +69,7 @@ final class OwnFrapi implements OwnApi.Mesher {
 				abgr[v] = c & 0xFF00FF00 | (c & 0xFF0000) >> 16 | (c & 0xFF) << 16;
 				light[v] = quad.lightmap(v);
 			}
-			this.quads.layers[layer == ChunkSectionLayer.SOLID ? 0 : 1].quad(p, abgr, uv, light);
+			this.quads.layers[layer == ChunkSectionLayer.SOLID || side == OwnLeaves.OPAQUE ? 0 : 1].quad(p, abgr, uv, light);
 			return;
 		}
 		VertexConsumer sink = this.translucentSink;

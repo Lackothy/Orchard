@@ -1,4 +1,4 @@
-// Modified for Russet: applies nothing when Switch has the renderer off.
+// Modified for Russet: applies nothing when Switch has the renderer off, and the far terrain hooks wherever LodConfig.LIVE.
 package mcopt.metal.mixin.lod;
 
 import java.util.List;
@@ -12,7 +12,8 @@ public final class LodMixinPlugin implements IMixinConfigPlugin {
 		mcopt.metal.Profile.apply();
 	}
 
-	private static final boolean ENABLED = Boolean.getBoolean("mcopt.lod") || System.getProperty("mcopt.lod.radius") != null;
+	private static final boolean ENABLED = Boolean.getBoolean("mcopt.lod") || System.getProperty("mcopt.lod.radius") != null
+		|| mcopt.metal.lod.LodConfig.LIVE;
 	private static final boolean TRUTH = System.getProperty("mcopt.lod.truthRd") != null;
 	private static final boolean FADE_INSTANT = "instant".equals(System.getProperty("mcopt.lod.fade", ""));
 

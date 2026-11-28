@@ -1,3 +1,6 @@
+// Modified for Russet: the world's far terrain is let go when LodConfig turns it off, and built again when its settings change;
+// CompFrame carries look (grain, distance shading, where the real terrain ends) and glow (far lights at night); the world's saved chunks
+// are read in (LodSaved).
 package mcopt.metal.lod;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -34,7 +37,7 @@ public final class Lod {
 	private static final boolean SODIUM = FabricLoader.getInstance().isModLoaded("sodium");
 	private static final int MAX_LEVELS = 12;
 	static final int COL_FRAME_BYTES = 10 * 16 + MAX_LEVELS * 32;
-	static final int COMP_FRAME_BYTES = 64 + 12 * 16;
+	static final int COMP_FRAME_BYTES = 64 + 13 * 16 + 16 * 16;
 	private static final int MASK_MAX = 128;
 	private static final int RING = 4;
 
@@ -53,6 +56,7 @@ public final class Lod {
 	private @Nullable LodMesh mesh;
 	private @Nullable LodPk pk;
 	private @Nullable Object worldOwner;
+	private int builtFor = -1;
 	private final @Nullable LodSeam seam;
 	private final @Nullable LodTaa taa;
 	private final @Nullable LodTaaTile taaTile;
@@ -137,6 +141,12 @@ public final class Lod {
 
 	public static float activeReach() {
 		return activeReach;
+	}
+
+	public static int savedPending() {
+		Lod l = instance;
+		LodField w = l != null ? l.field : null;
+		return w != null && w.saved != null ? w.saved.pending() : -1;
 	}
 
 	public static void adjustFog(FogData fog, FogType type) {
@@ -288,8 +298,10 @@ public final class Lod {
 	private void ensureWorld(Minecraft mc) {
 		ClientLevel level = mc.level;
 		MinecraftServer server = mc.getSingleplayerServer();
-		Object owner = level == null || server == null ? null : level;
-		if (owner == this.worldOwner) return;
+		Object owner = level == null || server == null || !LodConfig.ENABLED ? null : level;
+		int generation = LodConfig.generation;
+		if (owner == this.worldOwner && generation == this.builtFor) return;
+		this.builtFor = generation;
 		if (this.field != null) {
 			this.field.close();
 			this.field = null;
@@ -336,6 +348,7 @@ public final class Lod {
 			this.clip.publisher = this.publish;
 		}
 		this.field = new LodField(noise, this.clip, cache);
+		if (LodSaved.ON) this.field.saved = new LodSaved(sl, server, this.field, this.clip);
 		if (LodGenBench.ENABLED) LodGenBench.start(noise, this.field);
 		if (LodYield.ON) LodYield.top = this.clip.levels - 1;
 	}
@@ -740,6 +753,16 @@ public final class Lod {
 		MemoryUtil.memPutFloat(c + 244, this.atlasMips);
 		MemoryUtil.memPutFloat(c + 248, LodConfig.TEXTURES && this.atlasMips >= 0 ? 1 : 0);
 		MemoryUtil.memPutFloat(c + 252, Integer.getInteger("mcopt.lod.debugView", 0));
+		MemoryUtil.memPutFloat(c + 256, LodConfig.GRAIN);
+		MemoryUtil.memPutFloat(c + 260, LodConfig.FAR_SHADE);
+		MemoryUtil.memPutFloat(c + 264, this.maskOn ? rd * 16.0F : 0.0F);
+		MemoryUtil.memPutFloat(c + 268, 0.0F);
+		for (int b = 0; b < 16; b++) {
+			float[] lm = LodConfig.GLOW ? this.lightmap(b) : null;
+			for (int k = 0; k < 3; k++) MemoryUtil.memPutFloat(c + 272 + b * 16 + k * 4, lm != null ? lm[k] : 0.0F);
+			float w = lm == null ? 0 : b == 0 ? clip.crownLevels : b == 1 ? LodConfig.QUALITY_DISTANCE : 0;
+			MemoryUtil.memPutFloat(c + 272 + b * 16 + 12, w);
+		}
 		return columns;
 	}
 
@@ -997,11 +1020,21 @@ public final class Lod {
 	}
 
 	private float[] skyLight() {
+		return this.lightmap(0);
+	}
+
+	private float[] lightmap(int block) {
 		var s = Minecraft.getInstance().gameRenderer.gameRenderState().lightmapRenderState;
 		float nv = s.nightVisionEffectIntensity;
 		float r = Math.max(s.ambientColor.x(), s.nightVisionColor.x() * nv) + s.skyLightColor.x() * s.skyFactor;
 		float g = Math.max(s.ambientColor.y(), s.nightVisionColor.y() * nv) + s.skyLightColor.y() * s.skyFactor;
 		float b = Math.max(s.ambientColor.z(), s.nightVisionColor.z() * nv) + s.skyLightColor.z() * s.skyFactor;
+		if (block > 0 && s.blockLightTint != null) {
+			float level = block / 15.0F, lit = level / (4 - 3 * level) * s.blockFactor, white = 0.9F * (2 * level - 1) * (2 * level - 1);
+			r += (s.blockLightTint.x() + (1 - s.blockLightTint.x()) * white) * lit;
+			g += (s.blockLightTint.y() + (1 - s.blockLightTint.y()) * white) * lit;
+			b += (s.blockLightTint.z() + (1 - s.blockLightTint.z()) * white) * lit;
+		}
 		float boss = s.bossOverlayWorldDarkening;
 		r = r + (r * 0.7F - r) * boss;
 		g = g + (g * 0.6F - g) * boss;
@@ -1045,7 +1078,9 @@ public final class Lod {
 			w.generated.get() == 0 ? 0 : w.genNanos.get() / 1e6 / w.generated.get(), w.loaded.get(), w.pendingJobs(), w.queued(), w.chunksSummarized.get(),
 			this.nearestFar, w.settled ? String.format("%.1fs", (w.settledNanos - w.startNanos) / 1e9) : "no",
 			(LodField.CHUNK_TILES ? String.format(", chunk tiles %d (generations skipped %d)", w.chunkTiles.get(), w.chunkSkipped.get()) : "")
-				+ (CHUNK_HOLD ? String.format(", chunks held %d (released %d)", w.heldCount(), w.heldReleased) : ""));
+				+ (CHUNK_HOLD ? String.format(", chunks held %d (released %d)", w.heldCount(), w.heldReleased) : "")
+				+ (w.saved != null ? String.format(", saved chunks read %d (%.2f ms avg) applied %d skipped %d", w.saved.read.get(),
+					w.saved.read.get() == 0 ? 0 : w.saved.nanos.get() / 1e6 / w.saved.read.get(), w.saved.applied.get(), w.saved.skipped.get()) : ""));
 		StringBuilder gen = new StringBuilder();
 		for (int i = 0; i < 16; i++) {
 			long n = w.noise.stageNanos.get(i * 4 + 3);

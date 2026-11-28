@@ -10,7 +10,10 @@ Russet carries a modified copy of mcopt, taken at commit 7b1d0fb of
 https://github.com/noahdunnagan/mcopt, built into Russet's jar. Russet's own files here are
 src/main/java/mcopt/metal/Switch.java, src/main/java/mcopt/metal/ScreenTimes.java,
 src/main/java/mcopt/metal/Upscaler.java, src/main/native/upscale.m and
-src/main/java/mcopt/metal/mixin/MetalMixinPlugin.java, and mcopt-metal.mixins.json names that plugin. Any other file changed for Russet says so at the top.
+src/main/java/mcopt/metal/mixin/MetalMixinPlugin.java, src/main/java/mcopt/metal/mixin/lod/LodFluidEdgeMixin.java,
+src/main/java/mcopt/metal/lod/LodSaved.java, src/main/java/mcopt/metal/own/OwnLeaves.java,
+src/main/java/mcopt/metal/mixin/ownmesh/OwnMeshLeavesMixin.java,
+and mcopt-metal.mixins.json names that plugin, mcopt-metal-ownmesh.mixins.json that last mixin. Any other file changed for Russet says so at the top.
 Russet's own files here, and Russet's changes to the others, are under the PolyForm Shield License 1.0.0 (../LICENSE).
 
 

@@ -26,6 +26,7 @@ public final class VideoOptions {
     private static final List<Setting> ALL = new ArrayList<>();
 
     public static final Toggle HIDDEN_SEE_THROUGH = toggle("metal.hiddenSeeThrough");
+    public static final Toggle SMART_LEAVES = toggle("metal.smartLeaves");
     public static final Choice<Scale> RENDER_SCALE = new Choice<>("metal.renderScale", Scale.FULL);
 
     public static final Choice<Loader> LOADER = new Choice<>("loading.bar", Loader.COMET);

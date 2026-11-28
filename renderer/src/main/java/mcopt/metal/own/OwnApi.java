@@ -1,3 +1,4 @@
+// Modified for Russet: the mesher is told whether smart leaves (OwnLeaves) apply.
 package mcopt.metal.own;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -20,7 +21,8 @@ public final class OwnApi {
 		void block(float x, float y, float z, BlockAndTintGetter level, BlockPos pos, BlockState state, BlockStateModel model, long seed);
 	}
 
-	public static @Nullable Mesher mesher(boolean ambientOcclusion, BlockColors blockColors, OwnQuads quads, Supplier<VertexConsumer> translucent) {
-		return FRAPI ? OwnFrapi.get(ambientOcclusion, blockColors, quads, translucent) : null;
+	public static @Nullable Mesher mesher(boolean ambientOcclusion, boolean smartLeaves, BlockColors blockColors, OwnQuads quads,
+		Supplier<VertexConsumer> translucent) {
+		return FRAPI ? OwnFrapi.get(ambientOcclusion, smartLeaves, blockColors, quads, translucent) : null;
 	}
 }

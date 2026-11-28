@@ -1,3 +1,4 @@
+// Modified for Russet: the block light over a cell's top in its crown word's free bits (glowBits).
 package mcopt.metal.lod;
 
 import org.lwjgl.system.MemoryUtil;
@@ -458,6 +459,10 @@ final class LodClip {
 
 	static int crownWord(int groundY, int groundColor) {
 		return ((groundY + 512) & 0xFFF) | rgb565(groundColor) << 12;
+	}
+
+	static int glowBits(int light) {
+		return (light & 15) << 28;
 	}
 
 	static int belowWord(int belowColor) {

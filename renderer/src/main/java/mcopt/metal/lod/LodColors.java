@@ -1,3 +1,4 @@
+// Modified for Russet: water seen from above as the game draws it, over its floor by depth (underWater, floorLit); biome colours blended (Blend).
 package mcopt.metal.lod;
 
 import com.mojang.blaze3d.platform.NativeImage;
@@ -66,7 +67,45 @@ final class LodColors {
 		return tint(l.side, l.sideTint, l.constant, b, x, z);
 	}
 
+	static final class Blend {
+		final int x0, z0, cell, size;
+		final int[] grass, foliage, water, dry;
+
+		Blend(int x0, int z0, int cell, int size) {
+			this.x0 = x0;
+			this.z0 = z0;
+			this.cell = cell;
+			this.size = size;
+			this.grass = new int[size * size];
+			this.foliage = new int[size * size];
+			this.water = new int[size * size];
+			this.dry = new int[size * size];
+		}
+
+		int at(int kind, int x, int z) {
+			int i = Math.clamp(Math.floorDiv(z - this.z0, this.cell), 0, this.size - 1) * this.size
+				+ Math.clamp(Math.floorDiv(x - this.x0, this.cell), 0, this.size - 1);
+			return switch (kind) {
+				case TINT_GRASS -> this.grass[i];
+				case TINT_FOLIAGE -> this.foliage[i];
+				case TINT_WATER -> this.water[i];
+				default -> this.dry[i];
+			};
+		}
+	}
+
+	private static final ThreadLocal<Blend> BLEND = new ThreadLocal<>();
+
+	static void use(@Nullable Blend b) {
+		if (b == null) BLEND.remove();
+		else BLEND.set(b);
+	}
+
 	static int tint(int rgb, int kind, int constant, Biome b, int x, int z) {
+		if (kind >= TINT_GRASS && kind <= TINT_DRY_FOLIAGE) {
+			Blend blend = BLEND.get();
+			if (blend != null) return multiply(rgb, blend.at(kind, x, z));
+		}
 		int t = switch (kind) {
 			case TINT_GRASS -> b.getGrassColor(x, z);
 			case TINT_FOLIAGE -> b.getFoliageColor();
@@ -80,6 +119,28 @@ final class LodColors {
 
 	static boolean fringed(BlockState s) {
 		return s.is(Blocks.GRASS_BLOCK) || s.is(Blocks.PODZOL) || s.is(Blocks.MYCELIUM);
+	}
+
+	private static final float WATER_ALPHA = 0.71F;
+	private static final float[] DEPTH_LIGHT = new float[16];
+
+	static {
+		for (int d = 0; d < 16; d++) {
+			float level = (15 - d) / 15.0F;
+			float light = level / (4 - 3 * level);
+			float inverted = 1 - light;
+			DEPTH_LIGHT[d] = light + (1 - inverted * inverted * inverted * inverted - light) * 0.5F;
+		}
+	}
+
+	static int underWater(int floor, int water, int depth) {
+		return mix(floorLit(floor, depth), water, WATER_ALPHA);
+	}
+
+	static int floorLit(int floor, int depth) {
+		float light = depth >= 16 ? 0 : DEPTH_LIGHT[Math.max(0, depth)];
+		int r = (int) (((floor >> 16) & 255) * light), g = (int) (((floor >> 8) & 255) * light), b = (int) ((floor & 255) * light);
+		return r << 16 | g << 8 | b;
 	}
 
 	static int mix(int a, int b, float f) {

@@ -135,9 +135,20 @@ public abstract class AbstractFrame extends BaseWidget implements ContainerEvent
         }
         for (GuiEventListener child : this.children) {
             if (child instanceof Renderable renderable) {
+                // Russet: a row scrolled out of the page's view isn't drawn (a page of hundreds, as Extras, was every row every frame)
+                if (child instanceof OptionRow row && !visible(drawContext, row.getDimensions())) {
+                    row.everyFrame();
+                    continue;
+                }
                 renderable.extractRenderState(drawContext, mouseX, mouseY, delta);
             }
         }
+    }
+
+    private static boolean visible(GuiGraphicsExtractor drawContext, LayoutBounds dim) {
+        int x = dim.x() + dim.width() / 2;
+        return drawContext.containsPointInScissor(x, dim.y()) || drawContext.containsPointInScissor(x, dim.y() + dim.height() / 2)
+            || drawContext.containsPointInScissor(x, dim.y() + dim.height() - 1);
     }
 
     public void applyScissor(GuiGraphicsExtractor guiGraphics, int x, int y, int width, int height, Runnable action) {

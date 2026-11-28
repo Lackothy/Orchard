@@ -25,6 +25,109 @@ sourceSets.main {
     resources.srcDir("renderer/src/main/resources")
 }
 
+val mcoptFlags by tasks.registering {
+    val root = file("renderer/src/main/java")
+    val sources = fileTree(root) { include("**/*.java") }
+    val output = layout.buildDirectory.file("mcopt-flags/flags.tsv")
+    inputs.files(sources)
+    outputs.file(output)
+    doLast {
+        output.get().asFile.writeText(scanFlags(root, sources.files.sortedBy { it.path }))
+    }
+}
+
+val flagReads: List<Triple<Regex, String, Any>> = listOf(
+    Triple("""Boolean\.getBoolean\(\s*"K"\s*\)""", "bool", "false"),
+    Triple("""Boolean\.parseBoolean\(\s*System\.getProperty\(\s*"K"\s*,\s*"(true|false)"\s*\)""", "bool", 1),
+    Triple(""""true"\.equals(?:IgnoreCase)?\(\s*System\.getProperty\(\s*"K"\s*,\s*"(true|false)"""", "bool", 1),
+    Triple("""!\s*"false"\.equals(?:IgnoreCase)?\(\s*System\.getProperty\(\s*"K"""", "bool", "true"),
+    Triple(""""false"\.equals(?:IgnoreCase)?\(\s*System\.getProperty\(\s*"K"""", "bool", "true"),
+    Triple(""""true"\.equals(?:IgnoreCase)?\(\s*System\.getProperty\(\s*"K"\s*\)""", "bool", "false"),
+    Triple("""\b(?:flag|b|bool)\(\s*"K"\s*,\s*(true|false)\s*\)""", "bool", 1),
+    Triple("""(?:Integer\.getInteger|Long\.getLong)\(\s*"K"\s*,\s*(-?\d+)L?\s*\)""", "int", 1),
+    Triple("""(?:Integer\.getInteger|Long\.getLong)\(\s*"K"""", "int", ""),
+    Triple("""(?:Double\.parseDouble|Float\.parseFloat)\(\s*System\.getProperty\(\s*"K"\s*,\s*"(-?[\d.]+)[fFdD]?"""", "number", 1),
+    Triple("""(?:Integer\.parseInt|Long\.parseLong)\(\s*System\.getProperty\(\s*"K"\s*,\s*"(-?\d+)"""", "int", 1),
+    Triple("""\b(?:floatProperty|floatFlag|f|live|intProperty)\(\s*"K"\s*,\s*(-?[\d.]+)[fFdD]?""", "number", 1),
+    Triple("""Boolean\.parseBoolean\(\s*System\.getProperty\(\s*"K"""", "bool", ""),
+    Triple("""(?:Double\.parseDouble|Float\.parseFloat)\(\s*System\.getProperty\(\s*"K"""", "number", ""),
+    Triple("""(?:Integer\.parseInt|Long\.parseLong)\(\s*System\.getProperty\(\s*"K"""", "int", ""),
+    Triple("""System\.getProperty\(\s*"K"\s*,\s*"([^"]*)"\s*\)""", "text", 1),
+    Triple("""System\.getProperty\(\s*"K"\s*\)""", "text", ""),
+).map { (pattern, kind, default) -> Triple(Regex(pattern), kind, default) }
+
+fun scanFlags(root: File, files: List<File>): String {
+    val key = Regex(""""(mcopt\.[A-Za-z0-9_.]+)"""")
+    val write = Regex("""System\.(?:setProperty|clearProperty)\(\s*"K"""")
+    val shaderScreen = key.findAll(root.resolve("mcopt/metal/shade/ShadeOptions.java").readText()).map { it.groupValues[1] }.toSet()
+    val found = sortedMapOf<String, Array<String>>()
+    for (file in files) {
+        val path = file.relativeTo(root).invariantSeparatorsPath
+        val lines = file.readLines()
+        for ((i, line) in lines.withIndex()) {
+            for (match in key.findAll(line)) {
+                val name = match.groupValues[1]
+                if (name.endsWith(".") || name == "mcopt.properties" || name.split('.').drop(1).any { it.first().isUpperCase() }
+                    || name in shaderScreen) {
+                    continue
+                }
+                val code = (line + " " + lines.getOrElse(i + 1) { "" }).replace("\"$name\"", "\"K\"")
+                val read = flagReads.firstNotNullOfOrNull { (regex, kind, default) ->
+                    regex.find(code)?.let { arrayOf(kind, if (default is Int) it.groupValues[default] else default as String) }
+                }
+                if (read == null && write.containsMatchIn(code)) {
+                    continue
+                }
+                val now = found[name]
+                val description = commentAbove(lines, i)
+                if (now == null || read != null && (now[0].isEmpty() || now[3].isEmpty() && description.isNotEmpty())) {
+                    found[name] = arrayOf(read?.get(0) ?: "", read?.get(1) ?: "", path, description)
+                }
+            }
+        }
+    }
+    for ((name, flag) in found) {
+        if (flag[3].isEmpty()) {
+            root.resolve(flag[2]).readLines().map { it.trim() }
+                .firstOrNull { (it.startsWith("//") || it.startsWith("*") || it.startsWith("/*")) && name in it }
+                ?.let { flag[3] = clean(it.replace(Regex("""^[/*\s]+"""), "").trimEnd('*', '/', ' ')) }
+        }
+    }
+    return found.entries.joinToString("") { (name, flag) ->
+        listOf(name, flag[0].ifEmpty { "text" }, flag[1], flag[2], flag[3]).joinToString("\t") { it.replace(Regex("""\s+"""), " ") } + "\n"
+    }
+}
+
+fun commentAbove(lines: List<String>, i: Int): String {
+    val out = ArrayDeque<String>()
+    var j = i - 1
+    while (j >= 0) {
+        val s = lines[j].trim()
+        if (s.startsWith("@")) {
+            j--
+        } else if (s.startsWith("//")) {
+            out.addFirst(s.removePrefix("//").trim())
+            j--
+        } else {
+            if (s.endsWith("*/")) {
+                var k = j
+                while (k > 0 && "/*" !in lines[k]) {
+                    k--
+                }
+                out.addFirst(lines.subList(k, j + 1).joinToString(" ") { it.trim().trimStart('/', '*').trimEnd('/', '*').trim() })
+            }
+            break
+        }
+    }
+    return clean(out.joinToString(" ").ifEmpty { Regex("""//\s*(.*)$""").find(lines[i])?.groupValues?.get(1) ?: "" })
+}
+
+fun clean(text: String): String = text
+    .replace(Regex("""\{@(?:code|link|linkplain)\s+([^}]*)}"""), "$1")
+    .replace(Regex("""<[^>]+>"""), "")
+    .replace(Regex("""\s+"""), " ")
+    .trim()
+
 sourceSets.main {
     java.srcDir("rain/src/main/java")
     resources.srcDir("rain/src/main/resources")
@@ -178,6 +281,9 @@ tasks.processResources {
     from(layout.buildDirectory.dir("natives"))
     from(sodiumApiJar) {
         into("META-INF/russet")
+    }
+    from(mcoptFlags) {
+        into("mcopt")
     }
     stampModJson()
 }

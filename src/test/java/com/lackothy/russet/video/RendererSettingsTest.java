@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class RendererSettingsTest {
 
     @Test
-    @DisplayName("no preset in the file is the default, not a crash on the Metal page")
+    @DisplayName("no preset in the file is the default, not a crash on the Shaders page")
     void noPresetSaved() {
         assertEquals("balanced", RendererSettings.shaderPreset(null));
     }

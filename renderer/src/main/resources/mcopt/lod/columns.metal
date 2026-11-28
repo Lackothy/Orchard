@@ -1,3 +1,24 @@
+// Modified for Russet: grain on untextured far terrain and shading from the heightfield around it (compLook).
+// Far terrain (mcopt.metal.lod, -Dmcopt.lod=true), drawn per screen column.
+//
+// The far terrain is a clipmap of block columns: level L holds an N x N window of cells 2^L blocks wide around the camera,
+// each cell its top surface (and whether it is water) and the colors of its top and of its sides. Level 0 is block
+// exact; each coarser level reaches twice as far. Nothing is meshed.
+//
+// A frame: lod_columns (compute, one thread per column) walks, for each screen column, the vertical plane through the
+// camera that projects onto it (with no camera roll every world-vertical line projects to a line through the vanishing
+// point V of the vertical, so "screen columns" are the lines through V), front to back through the cells the plane cuts,
+// level 0 out to its switch distance, then level 1, and so on (a grid walk: every cell the plane crosses, so a block's
+// wall is never skipped). Each cell's wall (at the distance the plane enters it) and top (to where it leaves) are
+// projected to the column's rows; rows are assigned bottom up to the first surface that reaches them (a y-buffer: the
+// rows of a column are filled in order, each row once), which is exact point sampling of the block columns at the row
+// centers, the same as rasterizing them. Each pixel of the band of rows far terrain can cover is written exactly once:
+// with its surface (distance, face, color) or empty. Then lod_comp (a fragment pass in the level's own render pass,
+// right after the real terrain) turns each pixel into a lit, fogged color and a depth (shaders off) or a G-buffer texel
+// (native shading), depth-tested against the real terrain.
+//
+// Cost scales with columns x cells crossed, not with triangles: an 8 x 8-cell max height per block lets the walk skip
+// blocks entirely below the column's y-buffer, and a column stops as soon as its remaining rows can see only sky.
 #include <metal_stdlib>
 using namespace metal;
 
@@ -42,6 +63,7 @@ struct ColFrame {
 #define REC_WET (1u << 19)
 #define REC_CROWN (1u << 24)
 #define REC_UNDER_CROWN (1u << 25)
+#define REC_GLOW_SHIFT 26u
 #define FACE_BOTTOM 5u
 #define FACE_PLANT 6u
 #define MAX_GAPS 5
@@ -913,6 +935,8 @@ struct CompFrame {
     int4 origin;
     float4 camFrac;
     float4 tex;
+    float4 look;
+    float4 glow[16];
 };
 
 struct CompVOut {
@@ -1029,9 +1053,9 @@ static inline bool compSurface(constant CompFrame& f, float4 pos, device const u
     return compShade(f, v, geom, color, crowns, texWords, palette, atlas, smp, s);
 }
 
-static inline bool compShade(constant CompFrame& f, uint2 v, device const uint* geom, device const uint* color, device const uint* crowns,
-                             device const uint* texWords, device const PaletteEntry* palette, texture2d<half> atlas, sampler smp,
-                             thread CompSurface& s) {
+static inline bool compShadeBase(constant CompFrame& f, uint2 v, device const uint* geom, device const uint* color, device const uint* crowns,
+                                 device const uint* texWords, device const PaletteEntry* palette, texture2d<half> atlas, sampler smp,
+                                 thread CompSurface& s) {
     uint c = v.y & 0xFFFFu;
     s.albedo = comp565(c);
     s.wet = (v.y & REC_WET) != 0u;
@@ -1127,6 +1151,101 @@ static inline bool compShade(constant CompFrame& f, uint2 v, device const uint* 
         s.albedo = compTexture(f, palette, atlas, smp, (tw >> 10) & 1023u, false, wuv, s.rel, nrm, s.albedo);
     }
     return true;
+}
+
+static inline float3 compNormal(uint face) {
+    return face == FACE_TOP || face == FACE_PLANT ? float3(0, 1, 0) : face == FACE_BOTTOM ? float3(0, -1, 0) : face == FACE_XP ? float3(1, 0, 0)
+        : face == FACE_XN ? float3(-1, 0, 0) : face == FACE_ZP ? float3(0, 0, 1) : float3(0, 0, -1);
+}
+
+static inline float compHash01(int3 p) {
+    uint h = uint(p.x) * 0x8da6b343u ^ uint(p.y) * 0xd8163841u ^ uint(p.z) * 0xcb1ab31fu;
+    h ^= h >> 15;
+    h *= 0x2c1b3c6du;
+    h ^= h >> 12;
+    h *= 0x297a2d39u;
+    h ^= h >> 15;
+    return float(h >> 8) / 16777216.0;
+}
+
+static inline float compGrainShows(float size, float pixel) {
+    return saturate((size / max(pixel, 1e-6) - 0.75) / 1.25);
+}
+
+static inline int compTopAt(constant CompFrame& f, device const uint* geom, uint level, int cx, int cz) {
+    int n = 1 << f.origin.w, m = n - 1;
+    uint g = geom[(level << (2u * uint(f.origin.w))) + uint(((cz & m) << f.origin.w) | (cx & m))];
+    return (g & GEOM_VALID) != 0u ? GEOM_Y(g) : -100000;
+}
+
+static inline void compLook(constant CompFrame& f, uint2 v, device const uint* geom, thread CompSurface& s) {
+    if (s.wet || s.face == FACE_PLANT || s.face == FACE_BOTTOM) return;
+    float3 n = compNormal(s.face);
+    float3 p = s.rel + f.camFrac.xyz;
+    float dist = length(s.rel);
+    if (f.look.x > 0.0 && s.debug != 1u && s.debug != 3u) {
+        float cosA = max(abs(dot(n, s.rel)) / max(dist, 1e-3), 0.15);
+        float pixel = dist * f.tex.x / cosA;
+        float3 inside = p - n * 0.01;
+        int3 block = int3(floor(inside)) + f.origin.xyz;
+        int3 texel = int3(floor(inside * 4.0)) + f.origin.xyz * 4;
+        float g = (compHash01(block) - 0.5) * 0.6 * compGrainShows(1.0, pixel) + (compHash01(texel) - 0.5) * compGrainShows(0.25, pixel);
+        s.albedo = half3(clamp(float3(s.albedo) * (1.0 + f.look.x * g), 0.0, 1.0));
+    }
+    if (f.look.y <= 0.0) return;
+    uint level = (v.y >> 20) & 15u;
+    int cell = 1 << level;
+    float y = p.y + float(f.origin.y);
+    if ((level != 0u || f.quadDepth.y == 0.0) && (v.y & (REC_CROWN | REC_UNDER_CROWN)) == 0u) {
+        float3 inside = p - n * 0.01;
+        int bx = int(floor(inside.x)) + f.origin.x, bz = int(floor(inside.z)) + f.origin.z;
+        int cx = bx >> level, cz = bz >> level;
+        if (s.face == FACE_TOP) {
+            int t = int(floor(y + 0.5));
+            bool w = compTopAt(f, geom, level, cx - 1, cz) > t, e = compTopAt(f, geom, level, cx + 1, cz) > t;
+            bool nn = compTopAt(f, geom, level, cx, cz - 1) > t, so = compTopAt(f, geom, level, cx, cz + 1) > t;
+            bool nw = compTopAt(f, geom, level, cx - 1, cz - 1) > t, ne = compTopAt(f, geom, level, cx + 1, cz - 1) > t;
+            bool sw = compTopAt(f, geom, level, cx - 1, cz + 1) > t, se = compTopAt(f, geom, level, cx + 1, cz + 1) > t;
+            float a00 = compVertexAo(w, nn, nw), a10 = compVertexAo(e, nn, ne), a01 = compVertexAo(w, so, sw), a11 = compVertexAo(e, so, se);
+            float u = saturate((float(bx - (cx << level)) + fract(inside.x)) / float(cell));
+            float vv = saturate((float(bz - (cz << level)) + fract(inside.z)) / float(cell));
+            s.ao *= mix(mix(a00, a10, u), mix(a01, a11, u), vv);
+        } else {
+            int ground = compTopAt(f, geom, level, cx + int(n.x), cz + int(n.z));
+            if (ground > -100000) s.ao *= 1.0 - 0.2 * saturate(1.0 - (y - float(ground)) / float(cell));
+        }
+    }
+    float fade = f.look.z > 0.0 ? saturate((length(s.rel.xz) - f.look.z) / 48.0) : 1.0;
+    if (fade <= 0.0) return;
+    float2 at = p.xz + n.xz * 0.01;
+    const float radii[3] = {4.0, 12.0, 32.0};
+    const float2 dirs[8] = {float2(1, 0), float2(0.70710678, 0.70710678), float2(0, 1), float2(-0.70710678, 0.70710678),
+                            float2(-1, 0), float2(-0.70710678, -0.70710678), float2(0, -1), float2(0.70710678, -0.70710678)};
+    bool top = s.face == FACE_TOP;
+    float occ = 0.0, weight = 0.0;
+    for (int d = 0; d < 8; d++) {
+        float facing = top ? 1.0 : dot(dirs[d], n.xz);
+        if (facing < 0.5) continue;
+        float rise = 0.0;
+        for (int k = 0; k < 3; k++) {
+            float r = max(radii[k], float(cell));
+            float2 q = at + dirs[d] * r;
+            int cx = (int(floor(q.x)) + f.origin.x) >> level, cz = (int(floor(q.y)) + f.origin.z) >> level;
+            rise = max(rise, (float(compTopAt(f, geom, level, cx, cz)) - y) / r);
+        }
+        float sine = rise / sqrt(1.0 + rise * rise);
+        occ += facing * (top ? sine * sine : sine);
+        weight += facing;
+    }
+    if (weight > 0.0) s.ao *= 1.0 - f.look.y * fade * (top ? 1.0 : 0.6) * occ / weight;
+}
+
+static inline bool compShade(constant CompFrame& f, uint2 v, device const uint* geom, device const uint* color, device const uint* crowns,
+                             device const uint* texWords, device const PaletteEntry* palette, texture2d<half> atlas, sampler smp,
+                             thread CompSurface& s) {
+    bool hit = compShadeBase(f, v, geom, color, crowns, texWords, palette, atlas, smp, s);
+    if (hit) compLook(f, v, geom, s);
+    return hit;
 }
 
 struct CompVanillaOut {
@@ -1626,6 +1745,7 @@ struct MeshInstance {
 };
 
 #define MESH_REL (1u << 15)
+#define MESH_UNDER (1u << 14)
 
 static inline bool meshResolve(constant MeshFrame& f, device const uint4* table, thread MeshInstance& mi) {
     if ((mi.a.y & MESH_REL) == 0u) return true;
@@ -1692,11 +1812,14 @@ static inline void meshCullBlock(constant MeshFrame& f, device const uint4* tabl
     if (f.opts.x != 0 && ((f.opts.x >> L) & 1) == 0) return;
     bool fake = f.opts.w != 0;
     bool occOnly = false;
+    bool under = false;
     if (fake) {
         if (L != 0 || !meshMasked(f, mask, 0, bx, bz)) return;
     } else if (!meshRightLevel<(MODE != 0)>(f, mask, L, bx, bz)) {
-        if (L != 0 || (f.opts.z & 16) == 0 || !meshRightLevelNoMask<(MODE != 0)>(f, L, bx, bz)) return;
-        occOnly = true;
+        if (L != 0 || !meshRightLevelNoMask<(MODE != 0)>(f, L, bx, bz)) return;
+        occOnly = (f.opts.z & 16) != 0;
+        under = MODE == 0 && f.caps.w != 0;
+        if (!occOnly && !under) return;
     }
     uint4 e;
     int K = fake ? (meshResident(f, table, 0, meshTileOf(f, bx), meshTileOf(f, bz), e) ? 0 : -1) : meshDrawLevel(f, table, L, bx, bz, e);
@@ -1777,7 +1900,7 @@ static inline void meshCullBlock(constant MeshFrame& f, device const uint4* tabl
         }
 #endif
     }
-    if (occOnly) return;
+    if (occOnly && !under) return;
     bool own = sh == 0;
     uint4 ne;
     bool exact[4];
@@ -1810,9 +1933,10 @@ static inline void meshCullBlock(constant MeshFrame& f, device const uint4* tabl
         bool v = vis[g] && (f.opts.y == 0 || ((f.opts.y >> g) & 1) != 0) && (h[g] >> 20) != 0u;
         bits |= v ? 1u << g : 0u;
     }
+    if (under) bits &= 1u;
     if (bits == 0u || (PK && !pkHome) || (LIVE && !liveList)) return;
     uint at = atomic_fetch_add_explicit(&args[ARGS_LIST], 1u, memory_order_relaxed);
-    if (at < uint(f.caps.y)) blocks[at] = uint4(uint(bx), uint(bz), uint(L) | uint(K) << 4 | bits << 8, hdr);
+    if (at < uint(f.caps.y)) blocks[at] = uint4(uint(bx), uint(bz), uint(L) | uint(K) << 4 | bits << 8 | (under ? 1u << 23 : 0u), hdr);
 }
 
 template <int MODE>
@@ -1931,7 +2055,8 @@ static inline void meshEmitBlock(constant MeshFrame& f, device const uint* arena
     if (gid >= min(n, uint(f.caps.y))) return;
     uint4 bl = blocks[gid];
     int bx = int(bl.x), bz = int(bl.y), L = int(bl.z & 15u), K = int((bl.z >> 4) & 15u);
-    uint bits = bl.z >> 8, hdr = bl.w;
+    uint bits = (bl.z >> 8) & 0x7FFFu, hdr = bl.w;
+    bool under = (bl.z & (1u << 23)) != 0u;
     int B = f.counts.y, bpt = 64 / B;
     int sh = K - L, kx = bx >> sh, kz = bz >> sh;
     uint blk = uint((kz & (bpt - 1)) * bpt + (kx & (bpt - 1)));
@@ -1962,7 +2087,7 @@ static inline void meshEmitBlock(constant MeshFrame& f, device const uint* arena
     }
     bool own = sh == 0;
     uint quadBase = (hdr + uint(bpt * bpt * MESH_HDR)) / 2u;
-    uint tag = uint(K) << 8 | (own ? 0u : 1u << 12) | (hiddenBlock ? 1u << 13 : 0u);
+    uint tag = uint(K) << 8 | (own ? 0u : 1u << 12) | (hiddenBlock ? 1u << 13 : 0u) | (under ? MESH_UNDER : 0u);
     int home = 0;
     if (PK) {
         float x0 = float(ox0) - f.cam.x, z0 = float(oz0) - f.cam.z, x1 = x0 + float(size), z1 = z0 + float(size);
@@ -2302,7 +2427,8 @@ kernel void lod_mesh_quads(constant CompFrame& f [[buffer(22)]], device const Me
         atomic_fetch_add_explicit(&args[64 + L], 1u, memory_order_relaxed);
         atomic_fetch_add_explicit(&args[80 + ((arena[qi * 2u] >> 26) & 7u) + 8u * min(L, 3u)], 1u, memory_order_relaxed);
 #endif
-        survivors[base + before] = clipped ? uint4(q, 0u, iid, 1u << 24 | L << 20) : uint4(w0, w1, mi.a.z, (mi.a.w & 0xFFFFFu) | L << 20 | marked << 25);
+        survivors[base + before] = clipped ? uint4(q, 0u, iid, 1u << 24 | L << 20)
+            : uint4(w0, w1, mi.a.z, (mi.a.w & 0xFFFFFu) | L << 20 | marked << 25 | ((mi.a.y & MESH_UNDER) != 0u ? 1u << 27 : 0u));
     }
 }
 
@@ -2340,6 +2466,17 @@ static inline int meshSkirtFloor(constant MeshFrame& mf, device const uint4* tab
     return lo == 100000 ? -512 : max(lo - 1, -512);
 }
 
+static inline void meshUnder(device const uint* geom, int4 origin, uint w0, int tx, int tz, thread MeshVOut& o) {
+    int m = (1 << origin.w) - 1;
+    int x = (tx << 6) + int(w0 & 127u), z = (tz << 6) + int((w0 >> 7) & 127u);
+    if ((geom[((z & m) << origin.w) | (x & m)] & GEOM_WET) == 0u) {
+        o.position = float4(0.0, 0.0, -2.0, 1.0);
+        return;
+    }
+    o.position.z *= 1e-3;
+    o.info |= 3u << 3;
+}
+
 vertex MeshVOut lod_mesh_vs2(uint vid [[vertex_id]], uint iid [[instance_id]], constant CompFrame& f [[buffer(22)]],
                              device const MeshInstance* inst [[buffer(23)]], device const uint* arena [[buffer(24)]],
                              device const uint* args [[buffer(25)]], device const uint4* survivors [[buffer(26)]],
@@ -2362,7 +2499,9 @@ vertex MeshVOut lod_mesh_vs2(uint vid [[vertex_id]], uint iid [[instance_id]], c
             o.info = 0u;
             return o;
         }
-        return meshCorner(f, mi, arena, r.x * 4u + (vid & 3u));
+        MeshVOut o = meshCorner(f, mi, arena, r.x * 4u + (vid & 3u));
+        if ((mi.a.y & MESH_UNDER) != 0u) meshUnder(geom, f.origin, arena[(mi.a.x + r.x) * 2u], int(mi.a.z), int(mi.a.w), o);
+        return o;
     }
     int tz = int(r.w << 12) >> 12;
     uint w1 = r.y;
@@ -2373,6 +2512,7 @@ vertex MeshVOut lod_mesh_vs2(uint vid [[vertex_id]], uint iid [[instance_id]], c
     }
     MeshVOut o = meshQuadCorner(f, r.x, w1, int(r.z), tz, L, false, int4(0), vid & 3u, sidx);
     if (((r.w >> 25) & 3u) != 0u) o.info = 7u | ((r.w >> 25) & 3u) << 3;
+    if ((r.w & (1u << 27)) != 0u) meshUnder(geom, f.origin, r.x, int(r.z), tz, o);
     return o;
 }
 
@@ -2405,8 +2545,17 @@ static inline void meshSurface(constant CompFrame& f, float4 pos, uint info, dev
     uint idx = uint(L) * (1u << uint(2 * logN)) + uint(((az & m) << logN) | (ax & m));
     uint g = geom[idx], cw = color[idx];
     uint c565 = face == FACE_TOP ? (cw & 0xFFFFu) : (cw >> 16);
-    if (kind == 2u) c565 = (crowns[idx] >> 12) & 0xFFFFu;
+    if (kind == 2u || kind == 3u && f.quadDepth.w != 0.0) c565 = (crowns[idx] >> 12) & 0xFFFFu;
     record = c565 | ((g & GEOM_WET) != 0u ? REC_WET : 0u) | uint(L) << 20 | (kind == 1u ? REC_CROWN : 0u) | (kind == 2u ? REC_UNDER_CROWN : 0u);
+    if (float(L) < f.glow[0].w) record |= (crowns[idx] >> 28) << REC_GLOW_SHIFT;
+}
+
+static inline float3 meshLight(constant CompFrame& f, thread const CompSurface& s, uint record) {
+    float3 sky = s.sky * f.skyLight.rgb;
+    uint b = (record >> REC_GLOW_SHIFT) & 15u;
+    if (b == 0u) return sky;
+    float reach = f.glow[1].w, fade = saturate((reach - length(s.rel.xz)) / (0.15 * reach));
+    return sky + max(f.glow[b].rgb - f.glow[0].rgb, float3(0.0)) * fade;
 }
 
 #ifdef SEAM_DISSOLVE_MS
@@ -2624,9 +2773,9 @@ fragment half4 lod_mesh_vanilla(MeshVOut in [[stage_in]], constant CompFrame& f 
 #ifdef SEAM_THIN
     half3 lit = s.albedo * half(shade);
     seamThin(f, in.info, s, geom, color, crowns, lit);
-    half4 o = half4(compFog(f, s.rel, lit * half3(s.ao * s.sky * f.skyLight.rgb)), 1.0h);
+    half4 o = half4(compFog(f, s.rel, lit * half3(s.ao * meshLight(f, s, record))), 1.0h);
 #else
-    half4 o = half4(compFog(f, s.rel, s.albedo * half3(shade * s.ao * s.sky * f.skyLight.rgb)), 1.0h);
+    half4 o = half4(compFog(f, s.rel, s.albedo * half3(shade * s.ao * meshLight(f, s, record))), 1.0h);
 #endif
 #ifdef SEAM_TAA
     o.rgb = seamTaa(f, tf, hist, in.info, s, color, o.rgb);

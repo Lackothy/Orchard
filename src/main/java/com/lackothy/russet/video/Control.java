@@ -27,6 +27,9 @@ public sealed interface Control {
                      Function<T, Component> label, T fallback) implements Control {
     }
 
+    record Entry(Supplier<String> get, Consumer<String> set, Function<String, String> problem, String fallback) implements Control {
+    }
+
     record Text(Supplier<Component> value) implements Control {
     }
 

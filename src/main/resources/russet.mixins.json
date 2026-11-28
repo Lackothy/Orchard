@@ -20,6 +20,7 @@
     "OptionsSubScreenAccess",
     "PackRepositoryMixin",
     "RenderScaleMixin",
+    "RenderScaleSkyMixin",
     "TitleScreenAccess",
     "TooltipAccess"
   ],

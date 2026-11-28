@@ -1,3 +1,4 @@
+// Modified for Russet: MeshFrame caps.w, the real terrain's water drawn under from far terrain (LodConfig.WATER_UNDER).
 package mcopt.metal.lod;
 
 import java.util.ArrayDeque;
@@ -534,6 +535,7 @@ final class LodMesh implements LodClip.Listener {
 		MemoryUtil.memPutFloat(f + 404, (float) (128.0 / Math.log(Math.max(2.0, reach * 2.0 / 48.0))));
 		MemoryUtil.memPutInt(f + 416, MAX_SURVIVORS);
 		MemoryUtil.memPutInt(f + 420, MAX_LISTED);
+		MemoryUtil.memPutInt(f + 428, LodConfig.WATER_UNDER ? 1 : 0);
 		for (int l = 0; l < this.clip.levels; l++) {
 			MemoryUtil.memPutInt(f + 144 + l * 16L, this.clip.winTx[l]);
 			MemoryUtil.memPutInt(f + 148 + l * 16L, this.clip.winTz[l]);

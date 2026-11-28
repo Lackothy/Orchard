@@ -88,7 +88,7 @@ public final class DynamicLights {
         }
     }
 
-    private record Built(float[] lights, float falloff, boolean fine) {
+    public record Built(float[] lights, float falloff, boolean fine) {
     }
 
     private record Light(float x, float y, float z, int level) {
@@ -266,6 +266,32 @@ public final class DynamicLights {
     public static int raise(int packed, int x, int y, int z) {
         Built now = built;
         return now.lights().length == 0 ? packed : raise(packed, now, x + 0.5, y + 0.5, z + 0.5);
+    }
+
+    public static Built near(int x0, int y0, int z0, int x1, int y1, int z1) {
+        Built now = built;
+        float[] lights = now.lights();
+        float[] out = new float[lights.length];
+        int n = 0;
+        for (int i = 0; i < lights.length; i += 4) {
+            float reach = lights[i + 3] / now.falloff();
+            double dx = gap(lights[i], x0, x1);
+            double dy = gap(lights[i + 1], y0, y1);
+            double dz = gap(lights[i + 2], z0, z1);
+            if (dx * dx + dy * dy + dz * dz < reach * reach) {
+                System.arraycopy(lights, i, out, n, 4);
+                n += 4;
+            }
+        }
+        return n == lights.length ? now : new Built(n == 0 ? NO_LIGHTS : java.util.Arrays.copyOf(out, n), now.falloff(), now.fine());
+    }
+
+    private static double gap(float at, int min, int max) {
+        return at - Math.max(min + 0.5, Math.min(max + 0.5, at));
+    }
+
+    public static int raise(int packed, Built lights, int x, int y, int z) {
+        return lights.lights().length == 0 ? packed : raise(packed, lights, x + 0.5, y + 0.5, z + 0.5);
     }
 
     public static int raise(int packed, Entity entity, float partialTick) {

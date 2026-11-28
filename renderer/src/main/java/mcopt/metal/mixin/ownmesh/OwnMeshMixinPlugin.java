@@ -1,4 +1,4 @@
-// Modified for Russet: applies nothing when Switch has the renderer off.
+// Modified for Russet: applies nothing when Switch has the renderer off, and applies OwnMeshLeavesMixin.
 package mcopt.metal.mixin.ownmesh;
 
 import java.util.List;
@@ -37,6 +37,7 @@ public final class OwnMeshMixinPlugin implements IMixinConfigPlugin {
 		if (mixinClassName.endsWith("RegionStateMixin")) return frapiRegion;
 		if (mixinClassName.endsWith("RegionAccessMixin") || mixinClassName.endsWith("SectionCopyMixin")) return region && (Boolean.getBoolean("mcopt.own.mesh.prefill") || frapiRegion);
 		if (mixinClassName.endsWith("TintMixin")) return region && Boolean.getBoolean("mcopt.own.mesh.tint");
+		if (mixinClassName.endsWith("LeavesMixin")) return true;
 		return mixinClassName.endsWith("CompilerMixin") || "true".equals(MODE);
 	}
 

@@ -1,3 +1,4 @@
+// Modified for Russet: water's color over its floor from LodColors.underWater, its below colour its lit floor; biome colours blended across borders (biomes, blend).
 package mcopt.metal.lod;
 
 import java.util.Optional;
@@ -367,7 +368,12 @@ final class LodNoise {
 		this.biomes(t, w);
 		if (LodYield.ON) LodYield.checkpoint();
 		long t2 = System.nanoTime();
-		this.surfaceMaterials(t, w);
+		LodColors.use(t.blend);
+		try {
+			this.surfaceMaterials(t, w);
+		} finally {
+			LodColors.use(null);
+		}
 		long t3 = System.nanoTime();
 		int l = Math.min(15, t.level);
 		this.stageNanos.addAndGet(l * 4, t1 - t0);
@@ -378,6 +384,15 @@ final class LodNoise {
 	}
 
 	void dressTrees(LodTile t) {
+		LodColors.use(t.blend);
+		try {
+			this.dressTrees0(t);
+		} finally {
+			LodColors.use(null);
+		}
+	}
+
+	private void dressTrees0(LodTile t) {
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 		int c = t.cell();
 		for (int z = 0; z < t.size; z++) {
@@ -419,6 +434,15 @@ final class LodNoise {
 	}
 
 	void dressGround(LodTile t) {
+		LodColors.use(t.blend);
+		try {
+			this.dressGround0(t);
+		} finally {
+			LodColors.use(null);
+		}
+	}
+
+	private void dressGround0(LodTile t) {
 		if (t.level != 0) return;
 		for (int z = 0; z < t.size; z++) {
 			for (int x = 0; x < t.size; x++) {
@@ -454,11 +478,16 @@ final class LodNoise {
 		return this.minY;
 	}
 
+	private static final int BLEND_CELLS = 2;
+
+	@SuppressWarnings("unchecked")
 	private void biomes(LodTile t, Worker w) {
 		int c = t.cell(), x0 = t.minX(), z0 = t.minZ(), size = t.size;
-		int bs = Math.max(c, 4), n = size * c / bs;
+		int bs = Math.max(c, 4), n = size * c / bs, m = BLEND_CELLS, g = n + 2 * m;
+		int gx0 = x0 - m * bs, gz0 = z0 - m * bs;
+		Holder<Biome>[] grid = new Holder[g * g];
 		if (this.multi != null) {
-			DensityVolume v = new DensityVolume(n, 2, n, x0 + bs / 2, 0, z0 + bs / 2, bs, 256, bs);
+			DensityVolume v = new DensityVolume(g, 2, g, gx0 + bs / 2, 0, gz0 + bs / 2, bs, 256, bs);
 			int vsize = v.size();
 			DensityBuffer te = DensityBuffer.createUnpooled(vsize), hu = DensityBuffer.createUnpooled(vsize), co = DensityBuffer.createUnpooled(vsize),
 				er = DensityBuffer.createUnpooled(vsize), de = DensityBuffer.createUnpooled(vsize), we = DensityBuffer.createUnpooled(vsize);
@@ -468,26 +497,79 @@ final class LodNoise {
 			w.climate.erosion().sampleVolume(er, v);
 			w.climate.depth().sampleVolume(de, v);
 			w.climate.weirdness().sampleVolume(we, v);
-			for (int bz = 0; bz < n; bz++) {
-				for (int bx = 0; bx < n; bx++) {
+			for (int bz = 0; bz < g; bz++) {
+				for (int bx = 0; bx < g; bx++) {
 					int i0 = v.indexUnchecked(bx, 0, bz), i1 = v.indexUnchecked(bx, 1, bz);
-					int cx = bx * bs / c, cz = bz * bs / c;
-					int y = t.height[cz * size + cx];
-					float f = y / 256.0F;
+					float f = surfaceUnder(t, bx - m, bz - m, bs) / 256.0F;
 					float depth = de.get(i0) + (de.get(i1) - de.get(i0)) * f;
-					Holder<Biome> b = this.multi.getNoiseBiome(Climate.target(te.get(i0), hu.get(i0), co.get(i0), er.get(i0), depth, we.get(i0)));
-					int per = bs / c;
-					for (int dz = 0; dz < per; dz++) for (int dx = 0; dx < per; dx++) t.biome[(cz + dz) * size + cx + dx] = b;
+					grid[bz * g + bx] = this.multi.getNoiseBiome(Climate.target(te.get(i0), hu.get(i0), co.get(i0), er.get(i0), depth, we.get(i0)));
 				}
 			}
 		} else {
-			for (int z = 0; z < size; z++) {
-				for (int x = 0; x < size; x++) {
-					int bx = x0 + x * c + c / 2, bz = z0 + z * c + c / 2, y = t.height[z * size + x];
-					t.biome[z * size + x] = w.resolver.getNoiseBiome(bx >> 2, y >> 2, bz >> 2);
+			for (int bz = 0; bz < g; bz++) {
+				for (int bx = 0; bx < g; bx++) {
+					int px = gx0 + bx * bs + bs / 2, pz = gz0 + bz * bs + bs / 2, y = surfaceUnder(t, bx - m, bz - m, bs);
+					grid[bz * g + bx] = w.resolver.getNoiseBiome(px >> 2, y >> 2, pz >> 2);
 				}
 			}
 		}
+		for (int z = 0; z < size; z++) {
+			for (int x = 0; x < size; x++) t.biome[z * size + x] = grid[(z * c / bs + m) * g + x * c / bs + m];
+		}
+		t.blend = blend(grid, g, gx0, gz0, bs, t);
+	}
+
+	private static int surfaceUnder(LodTile t, int gx, int gz, int bs) {
+		int c = t.cell(), last = t.size - 1;
+		int cx = Math.clamp(Math.floorDiv(gx * bs, c), 0, last), cz = Math.clamp(Math.floorDiv(gz * bs, c), 0, last);
+		return t.height[cz * t.size + cx];
+	}
+
+	private static LodColors.Blend blend(Holder<Biome>[] grid, int g, int gx0, int gz0, int bs, LodTile t) {
+		int c = t.cell(), size = t.size, m = BLEND_CELLS;
+		int[][] raw = new int[4][g * g];
+		for (int k = 0; k < g * g; k++) {
+			Biome b = grid[k].value();
+			raw[0][k] = b.getGrassColor(gx0 + (k % g) * bs + bs / 2.0, gz0 + (k / g) * bs + bs / 2.0);
+			raw[1][k] = b.getFoliageColor();
+			raw[2][k] = b.getWaterColor();
+			raw[3][k] = b.getDryFoliageColor();
+		}
+		LodColors.Blend out = new LodColors.Blend(t.minX(), t.minZ(), c, size);
+		int[][] into = {out.grass, out.foliage, out.water, out.dry};
+		float r = m + 0.5F;
+		float[] sum = new float[12];
+		for (int z = 0; z < size; z++) {
+			float v = (z * c + c * 0.5F) / bs + m - 0.5F;
+			int v0 = Math.max(0, (int) Math.ceil(v - r)), v1 = Math.min(g - 1, (int) Math.floor(v + r));
+			for (int x = 0; x < size; x++) {
+				float u = (x * c + c * 0.5F) / bs + m - 0.5F;
+				int u0 = Math.max(0, (int) Math.ceil(u - r)), u1 = Math.min(g - 1, (int) Math.floor(u + r));
+				java.util.Arrays.fill(sum, 0);
+				float total = 0;
+				for (int gz = v0; gz <= v1; gz++) {
+					float wz = 1 - Math.abs(gz - v) / r;
+					if (wz <= 0) continue;
+					for (int gx = u0; gx <= u1; gx++) {
+						float wt = wz * (1 - Math.abs(gx - u) / r);
+						if (wt <= 0) continue;
+						int k = gz * g + gx;
+						for (int kind = 0; kind < 4; kind++) {
+							int rgb = raw[kind][k];
+							sum[kind * 3] += ((rgb >> 16) & 255) * wt;
+							sum[kind * 3 + 1] += ((rgb >> 8) & 255) * wt;
+							sum[kind * 3 + 2] += (rgb & 255) * wt;
+						}
+						total += wt;
+					}
+				}
+				int i = z * size + x;
+				for (int kind = 0; kind < 4; kind++) {
+					into[kind][i] = Math.round(sum[kind * 3] / total) << 16 | Math.round(sum[kind * 3 + 1] / total) << 8 | Math.round(sum[kind * 3 + 2] / total);
+				}
+			}
+		}
+		return out;
 	}
 
 	private void surfaceMaterials(LodTile t, Worker w) {
@@ -546,9 +628,8 @@ final class LodNoise {
 						texTop = this.ice;
 					} else {
 						texTop = null;
-						int waterColor = LodColors.top(this.water, b, bx, bz);
-						float f = Math.min(1.0F, 0.55F + depth / 24.0F);
-						topColor = LodColors.mix(topColor, waterColor, f);
+						t.below[i] = LodColors.floorLit(topColor, depth);
+						topColor = LodColors.underWater(topColor, LodColors.top(this.water, b, bx, bz), depth);
 					}
 					t.water[i] = (short) waterTop;
 				} else {
